@@ -71,10 +71,11 @@ public class MedicalRecordService {
     public CommonDtos.PagedResponse<MedicalRecordDtos.MedicalRecordDto> searchRecords(
             String query, Long patientId, int page, int size, String sortBy, String sortDir) {
         permissionService.requirePermission(RolePermission.VIEW_MEDICAL_RECORDS);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         String cleanQuery = DomainValidators.optionalTrimmed(query);
         Pageable pageable = PaginationUtils.createPageable(page, size, sortBy, sortDir, RECORD_SORTS, "visitDate");
         Page<MedicalRecordEntity> result = medicalRecordRepository.searchAndFilter(
-                cleanQuery, patientId != null ? patientId : 0L, pageable);
+                cleanQuery, patientId != null ? patientId : 0L, demoScope, pageable);
         result.forEach(r -> r.getPrescriptions().size());
         return PaginationUtils.toPagedResponse(result, DtoMapper::toMedicalRecordDto);
     }
@@ -84,6 +85,7 @@ public class MedicalRecordService {
         permissionService.requirePermission(RolePermission.VIEW_MEDICAL_RECORDS);
         MedicalRecordEntity record = medicalRecordRepository.findHydratedById(id)
                 .orElseThrow(() -> new NotFoundException("Medical record not found."));
+        permissionService.verifySameScope(record.isDemoRecord(), "Medical record");
         record.getPrescriptions().size();
         return DtoMapper.toMedicalRecordDto(record);
     }
@@ -95,6 +97,7 @@ public class MedicalRecordService {
 
         MedicalRecordEntity entity = new MedicalRecordEntity();
         entity.setRecordCode("REC-" + sequenceRepository.nextMedicalRecordNumber());
+        entity.setDemoRecord(actor.isDemoUser());
         entity.setCreatedAt(OffsetDateTime.now(clock));
         applyAndValidate(entity, req);
 
@@ -111,6 +114,7 @@ public class MedicalRecordService {
 
         MedicalRecordEntity entity = medicalRecordRepository.findHydratedById(id)
                 .orElseThrow(() -> new NotFoundException("Medical record not found."));
+        permissionService.verifySameScope(entity.isDemoRecord(), "Medical record");
         applyAndValidate(entity, req);
 
         MedicalRecordEntity saved = medicalRecordRepository.save(entity);
@@ -123,6 +127,7 @@ public class MedicalRecordService {
     public CommonDtos.PagedResponse<MedicalRecordDtos.PrescriptionDto> listPrescriptions(
             String query, PrescriptionStatus status, Long patientId, Long recordId, int page, int size, String sortBy, String sortDir) {
         permissionService.requirePermission(RolePermission.VIEW_MEDICAL_RECORDS);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         String cleanQuery = DomainValidators.optionalTrimmed(query);
         Pageable pageable = PaginationUtils.createPageable(page, size, sortBy, sortDir, RX_SORTS, "prescribedAt");
         Page<PrescriptionEntity> result = prescriptionRepository.searchByFilters(
@@ -131,6 +136,7 @@ public class MedicalRecordService {
                 status != null ? status : PrescriptionStatus.ACTIVE,
                 patientId != null ? patientId : 0L,
                 recordId != null ? recordId : 0L,
+                demoScope,
                 pageable);
         return PaginationUtils.toPagedResponse(result, DtoMapper::toPrescriptionDto);
     }
@@ -140,6 +146,7 @@ public class MedicalRecordService {
         permissionService.requirePermission(RolePermission.VIEW_MEDICAL_RECORDS);
         PrescriptionEntity rx = prescriptionRepository.findHydratedById(id)
                 .orElseThrow(() -> new NotFoundException("Prescription not found."));
+        permissionService.verifySameScope(rx.isDemoRecord(), "Prescription");
         return DtoMapper.toPrescriptionDto(rx);
     }
 
@@ -147,16 +154,20 @@ public class MedicalRecordService {
     public MedicalRecordDtos.PrescriptionDto createStandalonePrescription(MedicalRecordDtos.StandalonePrescriptionRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_MEDICAL_RECORDS);
         UserEntity actor = permissionService.requireCurrentUserEntity();
+        boolean demoScope = actor.isDemoUser();
 
         PatientEntity patient = patientRepository.findById(req.patientId())
                 .orElseThrow(() -> new NotFoundException("Selected patient does not exist."));
+        permissionService.verifySameScope(patient.isDemoRecord(), "Selected patient");
         DoctorEntity doctor = doctorRepository.findWithDepartmentById(req.doctorId())
                 .orElseThrow(() -> new NotFoundException("Selected doctor does not exist."));
+        permissionService.verifySameScope(doctor.isDemoRecord(), "Selected doctor");
 
         MedicalRecordEntity record;
         if (req.medicalRecordId() != null) {
             record = medicalRecordRepository.findHydratedById(req.medicalRecordId())
                     .orElseThrow(() -> new NotFoundException("Selected medical record does not exist."));
+            permissionService.verifySameScope(record.isDemoRecord(), "Selected medical record");
             if (!record.getPatient().getId().equals(patient.getId())) {
                 throw new ValidationException("Selected medical record does not belong to the selected patient.");
             }
@@ -167,6 +178,7 @@ public class MedicalRecordService {
                     : context;
             record = new MedicalRecordEntity();
             record.setRecordCode("REC-" + sequenceRepository.nextMedicalRecordNumber());
+            record.setDemoRecord(demoScope);
             record.setPatient(patient);
             record.setDoctor(doctor);
             record.setVisitDate(LocalDate.now(clock));
@@ -180,6 +192,7 @@ public class MedicalRecordService {
         OffsetDateTime now = OffsetDateTime.now(clock);
         PrescriptionEntity rx = new PrescriptionEntity();
         rx.setMedicalRecord(record);
+        rx.setDemoRecord(demoScope);
         rx.setPatient(patient);
         rx.setDoctor(doctor);
         rx.setMedicationName(DomainValidators.requireNonBlank(req.medicationName(), "Medication name"));
@@ -205,6 +218,7 @@ public class MedicalRecordService {
         }
         PrescriptionEntity rx = prescriptionRepository.findHydratedById(prescriptionId)
                 .orElseThrow(() -> new NotFoundException("Prescription not found."));
+        permissionService.verifySameScope(rx.isDemoRecord(), "Prescription");
         rx.setStatus(status);
         PrescriptionEntity saved = prescriptionRepository.save(rx);
 
@@ -216,12 +230,15 @@ public class MedicalRecordService {
     private void applyAndValidate(MedicalRecordEntity entity, MedicalRecordDtos.MedicalRecordRequest req) {
         PatientEntity patient = patientRepository.findById(req.patientId())
                 .orElseThrow(() -> new NotFoundException("Selected patient does not exist."));
+        permissionService.verifySameScope(patient.isDemoRecord(), "Selected patient");
         DoctorEntity doctor = doctorRepository.findWithDepartmentById(req.doctorId())
                 .orElseThrow(() -> new NotFoundException("Selected doctor does not exist."));
+        permissionService.verifySameScope(doctor.isDemoRecord(), "Selected doctor");
         AppointmentEntity appointment = null;
         if (req.appointmentId() != null) {
             appointment = appointmentRepository.findById(req.appointmentId())
                     .orElseThrow(() -> new NotFoundException("Selected appointment does not exist."));
+            permissionService.verifySameScope(appointment.isDemoRecord(), "Selected appointment");
         }
 
         entity.setPatient(patient);
@@ -241,6 +258,7 @@ public class MedicalRecordService {
         for (MedicalRecordDtos.PrescriptionRequest rxReq : rxRequests) {
             PrescriptionEntity rx = new PrescriptionEntity();
             rx.setMedicalRecord(entity);
+            rx.setDemoRecord(entity.isDemoRecord());
             rx.setPatient(patient);
             rx.setDoctor(doctor);
             rx.setMedicationName(DomainValidators.requireNonBlank(rxReq.medicationName(), "Medication name"));

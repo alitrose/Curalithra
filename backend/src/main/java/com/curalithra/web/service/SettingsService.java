@@ -68,6 +68,7 @@ public class SettingsService {
     @Transactional
     public SettingsDtos.HospitalSettingsDto updateSettings(SettingsDtos.UpdateHospitalSettingsRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_SETTINGS);
+        permissionService.forbidDemoMutation("Modifying global hospital settings");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         HospitalSettingsEntity entity = settingsRepository.findById(SINGLETON_ID)

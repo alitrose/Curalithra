@@ -53,6 +53,9 @@ public class MedicalRecordEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
+
     @OneToMany(mappedBy = "medicalRecord", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id ASC")
     private List<PrescriptionEntity> prescriptions = new ArrayList<>();
@@ -98,4 +101,7 @@ public class MedicalRecordEntity {
 
     public List<PrescriptionEntity> getPrescriptions() { return prescriptions; }
     public void setPrescriptions(List<PrescriptionEntity> prescriptions) { this.prescriptions = prescriptions; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 }

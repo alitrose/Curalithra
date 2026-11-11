@@ -15,11 +15,46 @@ export class ApiRequestError extends Error {
   }
 }
 
+function normalizeConfiguredBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.pathname === '' || parsed.pathname === '/') {
+        return `${trimmed}/api`;
+      }
+    } catch {
+      // keep trimmed
+    }
+  }
+  return trimmed;
+}
+
+function isLocalHostname(): boolean {
+  if (typeof window === 'undefined') return true;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+}
+
+export function isApiConfigured(): boolean {
+  const configured = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+  if (normalizeConfiguredBaseUrl(configured).length > 0) {
+    return true;
+  }
+  return Boolean(import.meta.env.DEV) || import.meta.env.MODE === 'test' || isLocalHostname();
+}
+
 export function getApiBaseUrl(): string {
-  const configured = import.meta.env.VITE_API_BASE_URL as string | undefined;
-  return configured && configured.trim().length > 0
-    ? configured.trim().replace(/\/+$/, '')
-    : '/api';
+  const configured = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+  const normalized = normalizeConfiguredBaseUrl(configured);
+  if (normalized.length > 0) {
+    return normalized;
+  }
+  if (Boolean(import.meta.env.DEV) || import.meta.env.MODE === 'test' || isLocalHostname()) {
+    return '/api';
+  }
+  return '';
 }
 
 export function getStoredToken(): string | null {
@@ -36,7 +71,11 @@ export function setStoredToken(token: string | null): void {
 
 function shouldBroadcastUnauthorized(path: string, hadToken: boolean): boolean {
   if (!hadToken) return false;
-  return !path.startsWith('/auth/login') && !path.startsWith('/auth/setup');
+  return (
+    !path.startsWith('/auth/login') &&
+    !path.startsWith('/auth/setup') &&
+    !path.startsWith('/auth/demo-')
+  );
 }
 
 async function parseErrorResponse(res: Response): Promise<ApiRequestError> {
@@ -46,14 +85,31 @@ async function parseErrorResponse(res: Response): Promise<ApiRequestError> {
   } catch {
     // ignore non-JSON body
   }
+
+  let fallbackMessage = `Request failed with HTTP ${res.status}`;
+  if (res.status === 405) {
+    fallbackMessage =
+      'API endpoint rejected this request (HTTP 405). Verify VITE_API_BASE_URL points to the Spring Boot API (/api), not a static web host.';
+  } else if (res.status === 502 || res.status === 503) {
+    fallbackMessage =
+      'CURALITHRA API server is waking up or temporarily unavailable. Please wait a few seconds and retry.';
+  }
+
   return new ApiRequestError(
     res.status,
-    payload.message || `Request failed with HTTP ${res.status}`,
+    payload.message || fallbackMessage,
     payload.fieldErrors || {}
   );
 }
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  if (!isApiConfigured()) {
+    throw new ApiRequestError(
+      0,
+      'CURALITHRA backend API URL is not configured for this hosted site. Set GitHub Actions variable VITE_API_BASE_URL to your Render API URL (e.g., https://curalithra-api.onrender.com/api) and redeploy.'
+    );
+  }
+
   const token = getStoredToken();
   const headers = new Headers(options.headers || {});
   if (!headers.has('Content-Type') && options.body && !(options.body instanceof FormData)) {
@@ -89,6 +145,13 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 }
 
 export async function apiDownloadBlob(path: string, fallbackFilename: string): Promise<void> {
+  if (!isApiConfigured()) {
+    throw new ApiRequestError(
+      0,
+      'CURALITHRA backend API URL is not configured for this hosted site.'
+    );
+  }
+
   const token = getStoredToken();
   const headers = new Headers();
   if (token) {

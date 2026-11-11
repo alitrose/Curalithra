@@ -37,10 +37,11 @@ const EMPTY_FORM: PatientRequest = {
 };
 
 export const PatientsPage: React.FC = () => {
-  const { hasPermission, settings } = useAuth();
+  const { user, hasPermission, settings } = useAuth();
   const { pushToast } = useToast();
   const currency = settings?.currencySymbol || '₹';
 
+  const isDemo = Boolean(user?.demoUser);
   const canEdit = hasPermission('EDIT_PATIENTS');
   const canDelete = hasPermission('DELETE_PATIENTS');
 
@@ -342,10 +343,15 @@ export const PatientsPage: React.FC = () => {
                           {canDelete && (
                             <button
                               type="button"
+                              disabled={isDemo}
                               onClick={() => setDeleteTarget(p)}
-                              title="Delete patient"
+                              title={
+                                isDemo
+                                  ? 'Deleting patients is disabled in Public Demo Mode — use Reset Demo Data'
+                                  : 'Delete patient'
+                              }
                               aria-label={`Delete ${p.fullName}`}
-                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-red-500/60 hover:text-red-400"
+                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-red-500/60 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

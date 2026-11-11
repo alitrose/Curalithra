@@ -77,6 +77,7 @@ public class AppointmentService {
         String cleanQuery = DomainValidators.optionalTrimmed(query);
         LocalDate effectiveFrom = fromDate != null ? fromDate : MIN_DATE;
         LocalDate effectiveTo = toDate != null ? toDate : MAX_DATE;
+        boolean demoScope = permissionService.isCurrentDemoUser();
         Pageable pageable = PaginationUtils.createPageable(page, size, sortBy, sortDir, ALLOWED_SORTS, "appointmentDate");
 
         Page<AppointmentEntity> result = appointmentRepository.searchAndFilter(
@@ -87,6 +88,7 @@ public class AppointmentService {
                 patientId != null ? patientId : 0L,
                 effectiveFrom,
                 effectiveTo,
+                demoScope,
                 pageable);
         return PaginationUtils.toPagedResponse(result, DtoMapper::toAppointmentDto);
     }
@@ -95,6 +97,7 @@ public class AppointmentService {
     public List<AppointmentDtos.CalendarDayGroupDto> getCalendarView(
             String query, AppointmentStatus status, Long doctorId, LocalDate fromDate, LocalDate toDate) {
         permissionService.requirePermission(RolePermission.VIEW_APPOINTMENTS);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         String cleanQuery = DomainValidators.optionalTrimmed(query);
         LocalDate effectiveToday = LocalDate.now(clock);
         LocalDate effectiveFrom = fromDate != null ? fromDate : effectiveToday.minusDays(14);
@@ -109,6 +112,7 @@ public class AppointmentService {
                 0L,
                 effectiveFrom,
                 effectiveTo,
+                demoScope,
                 pageable);
 
         Map<LocalDate, List<AppointmentDtos.AppointmentDto>> grouped = new LinkedHashMap<>();
@@ -130,6 +134,7 @@ public class AppointmentService {
         permissionService.requirePermission(RolePermission.VIEW_APPOINTMENTS);
         AppointmentEntity appt = appointmentRepository.findHydratedById(id)
                 .orElseThrow(() -> new NotFoundException("Appointment not found."));
+        permissionService.verifySameScope(appt.isDemoRecord(), "Appointment");
         return DtoMapper.toAppointmentDto(appt);
     }
 
@@ -140,8 +145,10 @@ public class AppointmentService {
 
         PatientEntity patient = patientRepository.findById(req.patientId())
                 .orElseThrow(() -> new NotFoundException("Selected patient does not exist."));
+        permissionService.verifySameScope(patient.isDemoRecord(), "Selected patient");
         DoctorEntity doctor = doctorRepository.findWithDepartmentById(req.doctorId())
                 .orElseThrow(() -> new NotFoundException("Selected doctor does not exist."));
+        permissionService.verifySameScope(doctor.isDemoRecord(), "Selected doctor");
         if (!doctor.isActive()) {
             throw new ValidationException("Cannot schedule with an inactive doctor (" + doctor.getFullName() + ").");
         }
@@ -165,6 +172,7 @@ public class AppointmentService {
         OffsetDateTime now = OffsetDateTime.now(clock);
         AppointmentEntity entity = new AppointmentEntity();
         entity.setAppointmentCode("APT-" + sequenceRepository.nextAppointmentNumber());
+        entity.setDemoRecord(actor.isDemoUser());
         entity.setPatient(patient);
         entity.setDoctor(doctor);
         entity.setAppointmentDate(date);
@@ -189,10 +197,13 @@ public class AppointmentService {
 
         AppointmentEntity existing = appointmentRepository.findHydratedById(id)
                 .orElseThrow(() -> new NotFoundException("Appointment not found."));
+        permissionService.verifySameScope(existing.isDemoRecord(), "Appointment");
         PatientEntity patient = patientRepository.findById(req.patientId())
                 .orElseThrow(() -> new NotFoundException("Selected patient does not exist."));
+        permissionService.verifySameScope(patient.isDemoRecord(), "Selected patient");
         DoctorEntity doctor = doctorRepository.findWithDepartmentById(req.doctorId())
                 .orElseThrow(() -> new NotFoundException("Selected doctor does not exist."));
+        permissionService.verifySameScope(doctor.isDemoRecord(), "Selected doctor");
         if (!doctor.isActive() && !doctor.getId().equals(existing.getDoctor().getId())) {
             throw new ValidationException("Cannot assign appointment to an inactive doctor (" + doctor.getFullName() + ").");
         }
@@ -236,6 +247,7 @@ public class AppointmentService {
 
         AppointmentEntity existing = appointmentRepository.findHydratedById(id)
                 .orElseThrow(() -> new NotFoundException("Appointment not found."));
+        permissionService.verifySameScope(existing.isDemoRecord(), "Appointment");
 
         if (newStatus.blocksScheduleSlot() && !existing.getStatus().blocksScheduleSlot()) {
             if (hasDoctorTimeOverlap(existing.getDoctor().getId(), existing.getAppointmentDate(),

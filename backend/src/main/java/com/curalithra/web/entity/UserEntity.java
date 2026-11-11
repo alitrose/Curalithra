@@ -34,6 +34,9 @@ public class UserEntity {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoUser = false;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -63,6 +66,9 @@ public class UserEntity {
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+
+    public boolean isDemoUser() { return demoUser; }
+    public void setDemoUser(boolean demoUser) { this.demoUser = demoUser; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }

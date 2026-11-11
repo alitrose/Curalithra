@@ -59,6 +59,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public CommonDtos.NotificationsResponse buildNotifications() {
         CuralithraUserPrincipal principal = permissionService.requireAuthenticatedPrincipal();
+        boolean demoScope = principal.isDemoUser();
         Set<String> readKeys = notificationReadRepository.findByUserId(principal.getId())
                 .stream()
                 .map(NotificationReadEntity::getNotificationKey)
@@ -67,7 +68,7 @@ public class NotificationService {
         LocalDate today = LocalDate.now(clock);
         List<CommonDtos.NotificationItemDto> items = new ArrayList<>();
 
-        long todaysScheduled = appointmentRepository.findUpcoming(today, PageRequest.of(0, 50)).stream()
+        long todaysScheduled = appointmentRepository.findUpcoming(today, demoScope, PageRequest.of(0, 50)).stream()
                 .filter(a -> today.equals(a.getAppointmentDate()) && a.getStatus() == AppointmentStatus.SCHEDULED)
                 .count();
         if (todaysScheduled > 0) {
@@ -82,7 +83,7 @@ public class NotificationService {
             ));
         }
 
-        long upcomingTotal = appointmentRepository.countPendingQueue();
+        long upcomingTotal = appointmentRepository.countPendingQueue(demoScope);
         if (upcomingTotal > 0) {
             String key = "active-queue-" + today;
             items.add(new CommonDtos.NotificationItemDto(
@@ -96,7 +97,7 @@ public class NotificationService {
         }
 
         if (permissionService.hasPermission(RolePermission.VIEW_MEDICAL_RECORDS)) {
-            long activeRx = prescriptionRepository.countByStatus(PrescriptionStatus.ACTIVE);
+            long activeRx = prescriptionRepository.countByStatusAndDemoRecord(PrescriptionStatus.ACTIVE, demoScope);
             if (activeRx > 0) {
                 String key = "active-prescriptions-" + activeRx;
                 items.add(new CommonDtos.NotificationItemDto(
@@ -111,9 +112,9 @@ public class NotificationService {
         }
 
         if (permissionService.hasPermission(RolePermission.VIEW_BILLING)) {
-            long openInvoices = billRepository.countOpenInvoices();
-            BigDecimal totalBilled = billRepository.sumTotalBilledRevenue();
-            BigDecimal collected = billRepository.sumCollectedRevenue();
+            long openInvoices = billRepository.countOpenInvoices(demoScope);
+            BigDecimal totalBilled = billRepository.sumTotalBilledRevenue(demoScope);
+            BigDecimal collected = billRepository.sumCollectedRevenue(demoScope);
             BigDecimal pendingRev = totalBilled.subtract(collected).max(BigDecimal.ZERO);
             if (openInvoices > 0) {
                 String currencySymbol = settingsService.getCurrentSettingsSnapshot().getCurrencySymbol();
@@ -130,7 +131,7 @@ public class NotificationService {
             }
         }
 
-        if (doctorRepository.countByActiveTrue() == 0) {
+        if (doctorRepository.countByActiveTrueAndDemoRecord(demoScope) == 0) {
             String key = "no-doctors";
             items.add(new CommonDtos.NotificationItemDto(
                     key,

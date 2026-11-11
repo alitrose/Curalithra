@@ -7,6 +7,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -21,10 +22,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final boolean demoEnabled;
 
-    public JwtAuthFilter(JwtService jwtService, UserRepository userRepository) {
+    public JwtAuthFilter(JwtService jwtService,
+                         UserRepository userRepository,
+                         @Value("${curalithra.demo.enabled:false}") boolean demoEnabled) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.demoEnabled = demoEnabled;
     }
 
     @Override
@@ -49,14 +54,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 Optional<UserEntity> found = userRepository.findByUsernameIgnoreCase(username);
                 if (found.isPresent() && found.get().isActive()) {
                     UserEntity u = found.get();
-                    CuralithraUserPrincipal principal = new CuralithraUserPrincipal(
-                            u.getId(), u.getUsername(), u.getFullName(), u.getEmail(),
-                            u.getPasswordHash(), u.getRole(), u.getLinkedDoctorId(), u.isActive()
-                    );
-                    UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                            principal, null, principal.getAuthorities());
-                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(auth);
+                    Boolean tokenDemo = claims.get("demo", Boolean.class);
+                    if ((tokenDemo == null || tokenDemo == u.isDemoUser()) && (!u.isDemoUser() || demoEnabled)) {
+                        CuralithraUserPrincipal principal = new CuralithraUserPrincipal(
+                                u.getId(), u.getUsername(), u.getFullName(), u.getEmail(),
+                                u.getPasswordHash(), u.getRole(), u.getLinkedDoctorId(), u.isActive(), u.isDemoUser()
+                        );
+                        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                principal, null, principal.getAuthorities());
+                        auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(auth);
+                    }
                 }
             }
         } catch (Exception ignored) {

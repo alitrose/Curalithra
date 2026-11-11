@@ -50,6 +50,9 @@ public class AppointmentEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -85,4 +88,7 @@ public class AppointmentEntity {
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 }

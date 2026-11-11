@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import App from '../App';
-import { setStoredToken } from '../api/client';
+import { getStoredToken, setStoredToken } from '../api/client';
 import type { DashboardStats, NotificationsResponse, UserSummary } from '../types/api';
 
 const ADMIN_USER: UserSummary = {
@@ -222,6 +222,101 @@ describe('CURALITHRA Horizon Shell & Navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: /mark all read/i }));
     await waitFor(() => {
       expect(screen.queryByTestId('notification-unread-badge')).not.toBeInTheDocument();
+    });
+  });
+
+  it('displays DemoBanner with 1-click role switching and Reset Demo Data with zero sidebars', async () => {
+    const DEMO_ADMIN: UserSummary = {
+      ...ADMIN_USER,
+      id: 201,
+      username: 'demo.admin',
+      fullName: 'Dr. Elena Vance',
+      demoUser: true,
+    };
+    const DEMO_RECEPTION: UserSummary = {
+      ...RECEPTIONIST_USER,
+      id: 203,
+      username: 'demo.reception',
+      fullName: 'Maya Lin (Front Desk)',
+      demoUser: true,
+    };
+
+    setStoredToken('demo-admin-jwt');
+    let switchedToRole: string | null = null;
+    let resetCalled = false;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.endsWith('/auth/setup-status')) {
+          return new Response(JSON.stringify({ setupRequired: false }), { status: 200 });
+        }
+        if (url.endsWith('/auth/demo-status')) {
+          return new Response(JSON.stringify({ enabled: true, notice: 'Sandbox', roles: [] }), { status: 200 });
+        }
+        if (url.endsWith('/auth/me')) {
+          return new Response(JSON.stringify(DEMO_ADMIN), { status: 200 });
+        }
+        if (url.endsWith('/auth/demo-login') && init?.method === 'POST') {
+          const body = JSON.parse(String(init.body)) as { role: string };
+          switchedToRole = body.role;
+          return new Response(
+            JSON.stringify({
+              accessToken: 'demo-reception-jwt',
+              tokenType: 'Bearer',
+              expiresInMs: 28800000,
+              user: DEMO_RECEPTION,
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.endsWith('/demo/reset') && init?.method === 'POST') {
+          resetCalled = true;
+          return new Response(
+            JSON.stringify({
+              message: 'Demo reset',
+              session: {
+                accessToken: 'demo-reset-jwt',
+                tokenType: 'Bearer',
+                expiresInMs: 28800000,
+                user: DEMO_RECEPTION,
+              },
+              patientsCount: 20,
+              doctorsCount: 8,
+              appointmentsCount: 12,
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes('/dashboard/stats')) {
+          return new Response(JSON.stringify(EMPTY_STATS), { status: 200 });
+        }
+        return new Response(JSON.stringify({ items: [], totalCount: 0, alertCount: 0, unreadCount: 0 }), {
+          status: 200,
+        });
+      })
+    );
+
+    const { container } = render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('demo-mode-banner')).toBeInTheDocument();
+    });
+    expect(container.querySelectorAll('aside')).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Receptionist' }));
+
+    await waitFor(() => {
+      expect(switchedToRole).toBe('RECEPTIONIST');
+      expect(getStoredToken()).toBe('demo-reception-jwt');
+    });
+    expect(screen.queryByText('Records')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /reset demo data/i }));
+    await waitFor(() => {
+      expect(resetCalled).toBe(true);
+      expect(getStoredToken()).toBe('demo-reset-jwt');
     });
   });
 });

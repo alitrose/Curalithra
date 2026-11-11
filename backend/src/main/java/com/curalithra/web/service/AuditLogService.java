@@ -34,6 +34,11 @@ public class AuditLogService {
 
     @Transactional
     public void record(UserEntity actor, String actionType, String entityType, String entityId, String summary) {
+        record(actor, actionType, entityType, entityId, summary, actor != null && actor.isDemoUser());
+    }
+
+    @Transactional
+    public void record(UserEntity actor, String actionType, String entityType, String entityId, String summary, boolean demoRecord) {
         ActivityLogEntity entry = new ActivityLogEntity();
         entry.setUserId(actor != null ? actor.getId() : null);
         entry.setUsername(actor != null ? actor.getUsername() : "system");
@@ -41,6 +46,7 @@ public class AuditLogService {
         entry.setEntityType(entityType);
         entry.setEntityId(entityId);
         entry.setSummary(summary);
+        entry.setDemoRecord(demoRecord);
         entry.setCreatedAt(OffsetDateTime.now(clock));
         activityLogRepository.save(entry);
     }
@@ -48,10 +54,11 @@ public class AuditLogService {
     @Transactional(readOnly = true)
     public CommonDtos.PagedResponse<CommonDtos.ActivityLogDto> listAuditLogs(int page, int size) {
         permissionService.requirePermission(RolePermission.VIEW_ACTIVITY_LOGS);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         Pageable pageable = PaginationUtils.createPageable(
                 page, size, "createdAt", "desc",
                 Map.of("createdAt", "createdAt", "actionType", "actionType"), "createdAt");
-        Page<ActivityLogEntity> logs = activityLogRepository.findAllByOrderByCreatedAtDesc(pageable);
+        Page<ActivityLogEntity> logs = activityLogRepository.findByDemoRecordOrderByCreatedAtDesc(demoScope, pageable);
         return PaginationUtils.toPagedResponse(logs, DtoMapper::toActivityLogDto);
     }
 }

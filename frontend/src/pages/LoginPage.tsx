@@ -1,30 +1,53 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   Eye,
   EyeOff,
+  FlaskConical,
   Lock,
+  RefreshCw,
   Server,
   ShieldCheck,
   Sparkles,
+  Stethoscope,
   UserCheck,
+  Users,
 } from 'lucide-react';
 import { CuralithraLogo } from '../components/CuralithraLogo';
-import { ApiRequestError, apiRequest } from '../api/client';
+import { ApiRequestError, apiRequest, isApiConfigured } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import type { HealthStatus } from '../types/api';
+import type { HealthStatus, Role } from '../types/api';
+
+const ROLE_ICON: Record<Role, React.FC<{ className?: string }>> = {
+  ADMIN: ShieldCheck,
+  DOCTOR: Stethoscope,
+  RECEPTIONIST: Users,
+};
 
 export const LoginPage: React.FC = () => {
-  const { user, setupRequired, sessionNotice, clearSessionNotice, login, setupWorkspace, refreshSetupStatus } =
-    useAuth();
+  const {
+    user,
+    setupRequired,
+    demoStatus,
+    sessionNotice,
+    clearSessionNotice,
+    login,
+    loginWithDemoRole,
+    setupWorkspace,
+    refreshSetupStatus,
+    refreshDemoStatus,
+  } = useAuth();
   const { pushToast } = useToast();
   const navigate = useNavigate();
 
+  const apiConfigured = isApiConfigured();
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [healthOffline, setHealthOffline] = useState(false);
+  const [checkingHealth, setCheckingHealth] = useState(false);
 
   // Login state
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
@@ -40,6 +63,7 @@ export const LoginPage: React.FC = () => {
   const [createSampleRoleAccounts, setCreateSampleRoleAccounts] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
+  const [demoLoadingRole, setDemoLoadingRole] = useState<Role | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -49,23 +73,53 @@ export const LoginPage: React.FC = () => {
     }
   }, [user, navigate]);
 
+  const checkConnectivity = useCallback(async () => {
+    if (!apiConfigured) {
+      setHealth(null);
+      setHealthOffline(true);
+      return;
+    }
+    setCheckingHealth(true);
+    try {
+      const res = await apiRequest<HealthStatus>('/health');
+      setHealth(res);
+      setHealthOffline(false);
+      await Promise.all([refreshSetupStatus(), refreshDemoStatus()]);
+    } catch {
+      setHealth(null);
+      setHealthOffline(true);
+    } finally {
+      setCheckingHealth(false);
+    }
+  }, [apiConfigured, refreshDemoStatus, refreshSetupStatus]);
+
   useEffect(() => {
-    let mounted = true;
-    apiRequest<HealthStatus>('/health')
-      .then((res) => {
-        if (mounted) {
-          setHealth(res);
-          setHealthOffline(false);
-        }
-      })
-      .catch(() => {
-        if (mounted) setHealthOffline(true);
-      });
-    refreshSetupStatus();
-    return () => {
-      mounted = false;
-    };
-  }, [refreshSetupStatus]);
+    checkConnectivity();
+  }, [checkConnectivity]);
+
+  const handleDemoRole = async (role: Role) => {
+    setErrorMsg(null);
+    setFieldErrors({});
+    clearSessionNotice();
+    setDemoLoadingRole(role);
+    try {
+      const signedIn = await loginWithDemoRole(role);
+      pushToast(
+        'success',
+        'Demo Mode Active',
+        `Exploring as ${signedIn.fullName} (${signedIn.roleDisplay})`
+      );
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg('Unable to start demo session. Please verify backend connectivity.');
+      }
+    } finally {
+      setDemoLoadingRole(null);
+    }
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,22 +220,38 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full border border-horizon-border bg-horizon-card px-3.5 py-1.5 text-xs">
-            <Server className={`h-3.5 w-3.5 ${healthOffline ? 'text-red-400' : 'text-horizon-accent'}`} />
-            <span className="text-horizon-muted">
-              {health
-                ? `API ${health.status} · DB ${health.database}`
-                : healthOffline
-                ? 'API Offline'
-                : 'Checking API...'}
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-horizon-border bg-horizon-card px-3.5 py-1.5 text-xs">
+              <Server className={`h-3.5 w-3.5 ${healthOffline ? 'text-red-400' : 'text-horizon-accent'}`} />
+              <span className="text-horizon-muted">
+                {health
+                  ? `API ${health.status} · DB ${health.database}`
+                  : !apiConfigured
+                  ? 'API URL Not Configured'
+                  : healthOffline
+                  ? 'API Offline'
+                  : 'Checking API...'}
+              </span>
+            </div>
+            {healthOffline && apiConfigured && (
+              <button
+                type="button"
+                onClick={checkConnectivity}
+                disabled={checkingHealth}
+                title="Retry backend health check"
+                className="inline-flex items-center gap-1 rounded-full border border-horizon-border bg-horizon-card px-3 py-1.5 text-xs font-semibold text-horizon-text transition hover:border-horizon-accent hover:text-horizon-accent disabled:opacity-60"
+              >
+                <RefreshCw className={`h-3 w-3 ${checkingHealth ? 'animate-spin' : ''}`} />
+                <span>{checkingHealth ? 'Checking...' : 'Retry'}</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 items-center px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid w-full grid-cols-1 gap-8 lg:grid-cols-12 lg:items-center">
-          <div className="space-y-6 lg:col-span-6">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 items-center px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid w-full grid-cols-1 gap-8 lg:grid-cols-12 lg:items-start">
+          <div className="space-y-6 lg:col-span-6 lg:pt-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-horizon-emerald/50 bg-horizon-emerald/10 px-3.5 py-1 text-xs font-semibold text-horizon-accent">
               <ShieldCheck className="h-4 w-4" />
               <span>HIPAA-Minded RBAC & Clinical Operations Platform</span>
@@ -198,6 +268,36 @@ export const LoginPage: React.FC = () => {
               medical records, prescriptions, BigDecimal invoice ledgers, and compliance audit trails
               in one secure Horizon workspace.
             </p>
+
+            {demoStatus?.enabled && !setupRequired && (
+              <div className="rounded-2xl border border-horizon-emerald/60 bg-gradient-to-br from-horizon-emerald/15 via-horizon-card to-horizon-card p-5 shadow-horizon">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-horizon-accent/50 bg-horizon-accent/15 px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-horizon-accent">
+                    <FlaskConical className="h-3.5 w-3.5" />
+                    <span>Public Interactive Sandbox</span>
+                  </span>
+                  <span className="text-[11px] font-medium text-horizon-muted">
+                    No account setup needed
+                  </span>
+                </div>
+                <p className="mt-2.5 text-xs leading-relaxed text-horizon-muted">
+                  {demoStatus.notice}
+                </p>
+                <button
+                  type="button"
+                  data-testid="explore-live-demo-btn"
+                  disabled={Boolean(demoLoadingRole) || submitting}
+                  onClick={() => handleDemoRole('ADMIN')}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-horizon-accent px-5 py-3 text-sm font-bold text-horizon-nav shadow-horizon transition hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FlaskConical className="h-4 w-4" />
+                  <span>
+                    {demoLoadingRole === 'ADMIN' ? 'Launching Live Demo...' : 'Explore Live Demo'}
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-horizon-border bg-horizon-card p-4">
@@ -221,7 +321,100 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:col-span-6">
+          <div className="space-y-5 lg:col-span-6">
+            {healthOffline && (
+              <div
+                role="status"
+                data-testid="api-offline-banner"
+                className="flex items-start justify-between gap-3 rounded-xl border border-amber-500/45 bg-amber-500/10 p-4 text-xs text-amber-200"
+              >
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <div>
+                    <p className="font-semibold text-amber-100">
+                      {!apiConfigured
+                        ? 'Backend API Endpoint Not Configured'
+                        : 'Backend API Currently Unreachable'}
+                    </p>
+                    <p className="mt-0.5 text-amber-200/85">
+                      {!apiConfigured
+                        ? 'This static frontend build does not have VITE_API_BASE_URL configured yet. Connect it to your hosted Spring Boot backend URL to enable sign-in and Live Demo.'
+                        : 'If the hosted backend is waking from sleep, click Retry after a few seconds.'}
+                    </p>
+                  </div>
+                </div>
+                {apiConfigured && (
+                  <button
+                    type="button"
+                    onClick={checkConnectivity}
+                    disabled={checkingHealth}
+                    className="shrink-0 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2.5 py-1.5 text-[11px] font-bold text-amber-100 hover:bg-amber-500/30 disabled:opacity-60"
+                  >
+                    {checkingHealth ? 'Checking...' : 'Retry'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {demoStatus?.enabled && !setupRequired && demoStatus.roles.length > 0 && (
+              <div
+                data-testid="demo-role-cards"
+                className="rounded-2xl border border-horizon-emerald/50 bg-horizon-card p-5 shadow-horizon"
+              >
+                <div className="mb-3 flex items-center justify-between border-b border-horizon-border pb-3">
+                  <div>
+                    <h2 className="font-display text-base font-bold text-horizon-text">
+                      Try Demo by Staff Role
+                    </h2>
+                    <p className="mt-0.5 text-xs text-horizon-muted">
+                      Launch real JWT sessions scoped to each RBAC persona (no password needed).
+                    </p>
+                  </div>
+                  <FlaskConical className="h-4 w-4 text-horizon-accent" />
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  {demoStatus.roles.map((r) => {
+                    const Icon = ROLE_ICON[r.role] || ShieldCheck;
+                    const loadingThis = demoLoadingRole === r.role;
+                    return (
+                      <button
+                        key={r.role}
+                        type="button"
+                        disabled={Boolean(demoLoadingRole) || submitting}
+                        onClick={() => handleDemoRole(r.role)}
+                        className="group flex flex-col justify-between rounded-xl border border-horizon-border bg-horizon-bg p-3 text-left transition hover:border-horizon-accent hover:bg-horizon-card-hover disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-horizon-emerald/20 text-horizon-accent">
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <span className="rounded border border-horizon-emerald/40 bg-horizon-emerald/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-horizon-accent">
+                              {r.role}
+                            </span>
+                          </div>
+                          <p className="mt-2 font-display text-xs font-bold text-horizon-text group-hover:text-horizon-accent">
+                            {r.title}
+                          </p>
+                          <p className="mt-0.5 text-[11px] font-medium text-horizon-muted">
+                            {r.summary}
+                          </p>
+                          <p className="mt-1 text-[10px] leading-snug text-horizon-muted/85">
+                            {r.accessScope}
+                          </p>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between border-t border-horizon-border/60 pt-2 text-[11px] font-semibold text-horizon-accent">
+                          <span>{loadingThis ? 'Entering...' : 'Launch Demo'}</span>
+                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-2xl border border-horizon-border bg-horizon-card p-6 shadow-horizon sm:p-8">
               <div className="mb-6 flex items-center justify-between border-b border-horizon-border pb-4">
                 <div>

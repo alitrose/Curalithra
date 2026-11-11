@@ -1,7 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { AUTH_EXPIRED_EVENT, apiRequest, buildQueryString, getStoredToken, setStoredToken } from '../api/client';
+import {
+  AUTH_EXPIRED_EVENT,
+  apiRequest,
+  buildQueryString,
+  getApiBaseUrl,
+  getStoredToken,
+  setStoredToken,
+} from '../api/client';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
 import { AppointmentsPage } from '../pages/AppointmentsPage';
@@ -312,6 +319,78 @@ describe('Clinical Workflows & API Client', () => {
     expect(getStoredToken()).toBeNull();
     expect(listener).toHaveBeenCalledTimes(1);
     window.removeEventListener(AUTH_EXPIRED_EVENT, listener);
+  });
+
+  it('normalizes root VITE_API_BASE_URL to include /api and disables deletes for demo patients', async () => {
+    vi.stubEnv('VITE_API_BASE_URL', 'https://curalithra-api.onrender.com/');
+    expect(getApiBaseUrl()).toBe('https://curalithra-api.onrender.com/api');
+    vi.unstubAllEnvs();
+
+    setStoredToken('demo-admin-jwt');
+    const demoAdmin = { ...ADMIN_USER, demoUser: true };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString();
+        if (url.endsWith('/auth/setup-status')) {
+          return new Response(JSON.stringify({ setupRequired: false }), { status: 200 });
+        }
+        if (url.endsWith('/auth/me')) {
+          return new Response(JSON.stringify(demoAdmin), { status: 200 });
+        }
+        if (url.endsWith('/settings')) {
+          return new Response(JSON.stringify({ currencySymbol: '₹' }), { status: 200 });
+        }
+        if (url.includes('/patients')) {
+          return new Response(
+            JSON.stringify({
+              content: [
+                {
+                  id: 1,
+                  patientCode: 'PAT-1001',
+                  fullName: 'Sophia Patel',
+                  dateOfBirth: '1988-03-10',
+                  gender: 'Female',
+                  phone: '+91 90001 11111',
+                  email: 'sophia@example.com',
+                  address: 'Pune',
+                  bloodGroup: 'A+',
+                  emergencyContact: 'Raj Patel',
+                  bp: '118/76',
+                  sugar: '92',
+                  weightKg: '61',
+                  heightCm: '165',
+                  registeredAt: '2026-11-10T09:00:00Z',
+                },
+              ],
+              page: 0,
+              size: 10,
+              totalElements: 1,
+              totalPages: 1,
+              first: true,
+              last: true,
+            }),
+            { status: 200 }
+          );
+        }
+        return new Response('{}', { status: 200 });
+      })
+    );
+
+    render(
+      <MemoryRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <PatientsPage />
+          </AuthProvider>
+        </ToastProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Sophia Patel')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /delete sophia patel/i })).toBeDisabled();
   });
 
   it('formats configured hospital currencies and canonical UTC dates consistently', () => {

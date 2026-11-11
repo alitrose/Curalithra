@@ -19,7 +19,8 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecordEnti
     @EntityGraph(attributePaths = {"patient", "doctor", "doctor.department", "appointment"})
     @Query("""
             SELECT m FROM MedicalRecordEntity m
-            WHERE (:q = '' OR LOWER(m.recordCode) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE m.demoRecord = :isDemo
+              AND (:q = '' OR LOWER(m.recordCode) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(m.patient.fullName) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(m.patient.patientCode) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(m.doctor.fullName) LIKE LOWER(CONCAT('%', :q, '%'))
@@ -30,8 +31,9 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecordEnti
     Page<MedicalRecordEntity> searchAndFilter(
             @Param("q") String query,
             @Param("patientId") long patientId,
+            @Param("isDemo") boolean isDemo,
             Pageable pageable);
 
     @EntityGraph(attributePaths = {"patient", "doctor", "doctor.department", "appointment"})
-    List<MedicalRecordEntity> findByPatientIdOrderByVisitDateDescIdDesc(Long patientId);
+    List<MedicalRecordEntity> findByPatientIdAndDemoRecordOrderByVisitDateDescIdDesc(Long patientId, boolean demoRecord);
 }

@@ -24,7 +24,7 @@ public class PatientEntity {
     @Column(nullable = false, length = 16)
     private String gender;
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(nullable = false, length = 30)
     private String phone;
 
     @Column(length = 160)
@@ -53,6 +53,9 @@ public class PatientEntity {
 
     @Column(name = "registered_at", nullable = false)
     private OffsetDateTime registeredAt;
+
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -98,4 +101,7 @@ public class PatientEntity {
 
     public OffsetDateTime getRegisteredAt() { return registeredAt; }
     public void setRegisteredAt(OffsetDateTime registeredAt) { this.registeredAt = registeredAt; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 }

@@ -52,3 +52,7 @@ curalithra:
     admin-email: ${CURALITHRA_BOOTSTRAP_ADMIN_EMAIL:admin@curalithra.demo}
     admin-password: ${CURALITHRA_BOOTSTRAP_ADMIN_PASSWORD:}
     seed-demo-data: ${CURALITHRA_BOOTSTRAP_SEED_DEMO:true}
+  demo:
+    enabled: ${CURALITHRA_DEMO_ENABLED:false}
+    password: ${CURALITHRA_DEMO_PASSWORD:}
+    seed-on-startup: ${CURALITHRA_DEMO_SEED_ON_STARTUP:true}

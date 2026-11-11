@@ -42,9 +42,10 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 const CATEGORIES = ['Consultation', 'Diagnostics', 'Procedure', 'Pharmacy', 'Hospitalization', 'General'];
 
 export const BillingPage: React.FC = () => {
-  const { hasPermission, settings } = useAuth();
+  const { user, hasPermission, settings } = useAuth();
   const { pushToast } = useToast();
 
+  const isDemo = Boolean(user?.demoUser);
   const canManage = hasPermission('MANAGE_BILLING');
   const canDelete = hasPermission('DELETE_BILLING');
   const currency = settings?.currencySymbol || '₹';
@@ -520,10 +521,15 @@ export const BillingPage: React.FC = () => {
                           {canDelete && (
                             <button
                               type="button"
+                              disabled={isDemo}
                               onClick={() => setDeleteTarget(b)}
-                              title="Delete invoice"
+                              title={
+                                isDemo
+                                  ? 'Deleting invoices is disabled in Public Demo Mode — use Reset Demo Data'
+                                  : 'Delete invoice'
+                              }
                               aria-label={`Delete ${b.invoiceNumber}`}
-                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-red-500/60 hover:text-red-400"
+                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-red-500/60 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

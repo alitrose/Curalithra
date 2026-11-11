@@ -11,14 +11,17 @@ public class DepartmentEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(nullable = false, length = 20)
     private String code;
 
     @Column(length = 500)
     private String description;
+
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -34,6 +37,9 @@ public class DepartmentEntity {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }

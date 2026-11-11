@@ -68,7 +68,7 @@ public class DoctorService {
     @Transactional(readOnly = true)
     public List<DoctorDtos.DepartmentDto> listDepartments() {
         permissionService.requirePermission(RolePermission.VIEW_DOCTORS);
-        return departmentRepository.findAllByOrderByNameAsc().stream()
+        return departmentRepository.findByDemoRecordOrderByNameAsc(permissionService.isCurrentDemoUser()).stream()
                 .map(DtoMapper::toDepartmentDto)
                 .toList();
     }
@@ -76,17 +76,18 @@ public class DoctorService {
     @Transactional(readOnly = true)
     public List<String> listSpecializations() {
         permissionService.requirePermission(RolePermission.VIEW_DOCTORS);
-        return doctorRepository.findDistinctSpecializations();
+        return doctorRepository.findDistinctSpecializations(permissionService.isCurrentDemoUser());
     }
 
     @Transactional(readOnly = true)
     public CommonDtos.PagedResponse<DoctorDtos.DoctorDto> searchDoctors(
             String query, String specialization, int page, int size, String sortBy, String sortDir) {
         permissionService.requirePermission(RolePermission.VIEW_DOCTORS);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         String cleanQuery = DomainValidators.optionalTrimmed(query);
         String cleanSpec = ("All".equalsIgnoreCase(specialization) || specialization == null) ? "" : specialization.trim();
         Pageable pageable = PaginationUtils.createPageable(page, size, sortBy, sortDir, ALLOWED_SORTS, "doctorCode");
-        Page<DoctorEntity> result = doctorRepository.searchAndFilter(cleanQuery, cleanSpec, pageable);
+        Page<DoctorEntity> result = doctorRepository.searchAndFilter(cleanQuery, cleanSpec, demoScope, pageable);
         return PaginationUtils.toPagedResponse(result, DtoMapper::toDoctorDto);
     }
 
@@ -95,26 +96,35 @@ public class DoctorService {
         permissionService.requirePermission(RolePermission.VIEW_DOCTORS);
         DoctorEntity doctor = doctorRepository.findWithDepartmentById(id)
                 .orElseThrow(() -> new NotFoundException("Doctor profile not found."));
+        permissionService.verifySameScope(doctor.isDemoRecord(), "Doctor profile");
         return DtoMapper.toDoctorDto(doctor);
     }
 
     @Transactional(readOnly = true)
     public List<AppointmentDtos.AppointmentDto> getDoctorAppointments(long doctorId) {
         permissionService.requirePermission(RolePermission.VIEW_APPOINTMENTS);
-        doctorRepository.findById(doctorId).orElseThrow(() -> new NotFoundException("Doctor profile not found."));
+        boolean demoScope = permissionService.isCurrentDemoUser();
+        DoctorEntity doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new NotFoundException("Doctor profile not found."));
+        permissionService.verifySameScope(doctor.isDemoRecord(), "Doctor profile");
         return appointmentRepository.findByDoctorIdOrderByAppointmentDateDescAppointmentTimeDesc(doctorId)
-                .stream().map(DtoMapper::toAppointmentDto).toList();
+                .stream()
+                .filter(a -> a.isDemoRecord() == demoScope)
+                .map(DtoMapper::toAppointmentDto)
+                .toList();
     }
 
     @Transactional
     public DoctorDtos.DoctorDto createDoctor(DoctorDtos.DoctorRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_DOCTORS);
         UserEntity actor = permissionService.requireCurrentUserEntity();
+        boolean demoScope = actor.isDemoUser();
 
         DoctorEntity entity = new DoctorEntity();
+        entity.setDemoRecord(demoScope);
         applyAndValidate(entity, req);
 
-        if (doctorRepository.findByEmailIgnoreCase(entity.getEmail()).isPresent()) {
+        if (doctorRepository.findByEmailIgnoreCaseAndDemoRecord(entity.getEmail(), demoScope).isPresent()) {
             throw new ConflictException("A doctor with email '" + entity.getEmail() + "' already exists.");
         }
 
@@ -134,9 +144,11 @@ public class DoctorService {
 
         DoctorEntity entity = doctorRepository.findWithDepartmentById(id)
                 .orElseThrow(() -> new NotFoundException("Doctor profile not found."));
+        permissionService.verifySameScope(entity.isDemoRecord(), "Doctor profile");
         applyAndValidate(entity, req);
 
-        Optional<DoctorEntity> duplicateEmail = doctorRepository.findByEmailIgnoreCase(entity.getEmail());
+        Optional<DoctorEntity> duplicateEmail = doctorRepository.findByEmailIgnoreCaseAndDemoRecord(
+                entity.getEmail(), entity.isDemoRecord());
         if (duplicateEmail.isPresent() && !duplicateEmail.get().getId().equals(id)) {
             throw new ConflictException("Email '" + entity.getEmail() + "' is assigned to another doctor.");
         }
@@ -150,10 +162,12 @@ public class DoctorService {
     @Transactional
     public void deleteDoctor(long id) {
         permissionService.requirePermission(RolePermission.DELETE_DOCTORS);
+        permissionService.forbidDemoMutation("Deleting doctors");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         DoctorEntity existing = doctorRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Doctor profile not found."));
+        permissionService.verifySameScope(existing.isDemoRecord(), "Doctor profile");
         doctorRepository.delete(existing);
         doctorRepository.flush();
 
@@ -164,6 +178,7 @@ public class DoctorService {
     private void applyAndValidate(DoctorEntity entity, DoctorDtos.DoctorRequest req) {
         DepartmentEntity dept = departmentRepository.findById(req.departmentId())
                 .orElseThrow(() -> new ValidationException("Please select a valid hospital department."));
+        permissionService.verifySameScope(dept.isDemoRecord(), "Department");
         entity.setFullName(DomainValidators.requireNonBlank(req.fullName(), "Doctor full name"));
         entity.setSpecialization(DomainValidators.requireNonBlank(req.specialization(), "Specialization"));
         entity.setDepartment(dept);

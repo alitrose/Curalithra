@@ -66,11 +66,12 @@ public class PatientService {
     public CommonDtos.PagedResponse<PatientDtos.PatientDto> searchPatients(
             String query, String gender, String bloodGroup, int page, int size, String sortBy, String sortDir) {
         permissionService.requirePermission(RolePermission.VIEW_PATIENTS);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         String cleanQuery = DomainValidators.optionalTrimmed(query);
         String cleanGender = ("All".equalsIgnoreCase(gender) || gender == null) ? "" : gender.trim();
         String cleanBlood = ("All".equalsIgnoreCase(bloodGroup) || bloodGroup == null) ? "" : bloodGroup.trim();
         Pageable pageable = PaginationUtils.createPageable(page, size, sortBy, sortDir, ALLOWED_SORTS, "registeredAt");
-        Page<PatientEntity> result = patientRepository.searchAndFilter(cleanQuery, cleanGender, cleanBlood, pageable);
+        Page<PatientEntity> result = patientRepository.searchAndFilter(cleanQuery, cleanGender, cleanBlood, demoScope, pageable);
         return PaginationUtils.toPagedResponse(result, DtoMapper::toPatientDto);
     }
 
@@ -79,24 +80,30 @@ public class PatientService {
         permissionService.requirePermission(RolePermission.VIEW_PATIENTS);
         PatientEntity patient = patientRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Patient record not found (ID: " + id + ")."));
+        permissionService.verifySameScope(patient.isDemoRecord(), "Patient record");
         return DtoMapper.toPatientDto(patient);
     }
 
     @Transactional(readOnly = true)
     public PatientDtos.PatientHistoryDto getPatientHistory(long id) {
         permissionService.requirePermission(RolePermission.VIEW_PATIENTS);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         PatientEntity patient = patientRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Patient record not found (ID: " + id + ")."));
+        permissionService.verifySameScope(patient.isDemoRecord(), "Patient record");
 
         List<AppointmentDtos.AppointmentDto> appointments = permissionService.hasPermission(RolePermission.VIEW_APPOINTMENTS)
                 ? appointmentRepository.findByPatientIdOrderByAppointmentDateDescAppointmentTimeDesc(id)
-                        .stream().map(DtoMapper::toAppointmentDto).toList()
+                        .stream()
+                        .filter(a -> a.isDemoRecord() == demoScope)
+                        .map(DtoMapper::toAppointmentDto)
+                        .toList()
                 : List.of();
 
         boolean clinicalAccess = permissionService.hasPermission(RolePermission.VIEW_MEDICAL_RECORDS);
         List<MedicalRecordDtos.MedicalRecordDto> medicalRecords = List.of();
         if (clinicalAccess) {
-            List<MedicalRecordEntity> recs = medicalRecordRepository.findByPatientIdOrderByVisitDateDescIdDesc(id);
+            List<MedicalRecordEntity> recs = medicalRecordRepository.findByPatientIdAndDemoRecordOrderByVisitDateDescIdDesc(id, demoScope);
             recs.forEach(r -> r.getPrescriptions().size());
             medicalRecords = recs.stream().map(DtoMapper::toMedicalRecordDto).toList();
         }
@@ -107,6 +114,7 @@ public class PatientService {
                     "", false, null, id,
                     OffsetDateTime.of(1900, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC),
                     OffsetDateTime.of(2999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC),
+                    demoScope,
                     Pageable.ofSize(50));
             billPage.forEach(b -> {
                 b.getItems().size();
@@ -128,11 +136,12 @@ public class PatientService {
     public PatientDtos.PatientDto registerPatient(PatientDtos.PatientRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_PATIENTS);
         UserEntity actor = permissionService.requireCurrentUserEntity();
+        boolean demoScope = actor.isDemoUser();
 
         PatientEntity entity = new PatientEntity();
         applyAndValidate(entity, req);
 
-        Optional<PatientEntity> duplicate = patientRepository.findByPhone(entity.getPhone());
+        Optional<PatientEntity> duplicate = patientRepository.findByPhoneAndDemoRecord(entity.getPhone(), demoScope);
         if (duplicate.isPresent()) {
             throw new ConflictException(
                     "A patient (" + duplicate.get().getPatientCode() + " - " + duplicate.get().getFullName()
@@ -140,6 +149,7 @@ public class PatientService {
         }
 
         entity.setPatientCode("PAT-" + sequenceRepository.nextPatientNumber());
+        entity.setDemoRecord(demoScope);
         entity.setRegisteredAt(OffsetDateTime.now(clock));
         PatientEntity saved = patientRepository.save(entity);
 
@@ -155,9 +165,10 @@ public class PatientService {
 
         PatientEntity entity = patientRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Patient record not found (ID: " + id + ")."));
+        permissionService.verifySameScope(entity.isDemoRecord(), "Patient record");
         applyAndValidate(entity, req);
 
-        Optional<PatientEntity> existingPhone = patientRepository.findByPhone(entity.getPhone());
+        Optional<PatientEntity> existingPhone = patientRepository.findByPhoneAndDemoRecord(entity.getPhone(), entity.isDemoRecord());
         if (existingPhone.isPresent() && !existingPhone.get().getId().equals(id)) {
             throw new ConflictException("Phone number " + entity.getPhone() + " belongs to another patient.");
         }
@@ -171,10 +182,12 @@ public class PatientService {
     @Transactional
     public void deletePatient(long id) {
         permissionService.requirePermission(RolePermission.DELETE_PATIENTS);
+        permissionService.forbidDemoMutation("Deleting patients");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         PatientEntity existing = patientRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Patient record not found (ID: " + id + ")."));
+        permissionService.verifySameScope(existing.isDemoRecord(), "Patient record");
         patientRepository.delete(existing);
         patientRepository.flush();
 

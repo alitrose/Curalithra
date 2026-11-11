@@ -29,6 +29,7 @@ public final class DtoMapper {
                 u.getRole().getDisplayName(),
                 u.getLinkedDoctorId(),
                 u.isActive(),
+                u.isDemoUser(),
                 u.getCreatedAt(),
                 u.getLastLoginAt(),
                 perms

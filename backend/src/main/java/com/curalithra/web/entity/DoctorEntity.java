@@ -28,7 +28,7 @@ public class DoctorEntity {
     @Column(nullable = false, length = 30)
     private String phone;
 
-    @Column(nullable = false, unique = true, length = 160)
+    @Column(nullable = false, length = 160)
     private String email;
 
     @Column(nullable = false, length = 200)
@@ -45,6 +45,9 @@ public class DoctorEntity {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -84,6 +87,9 @@ public class DoctorEntity {
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }

@@ -12,11 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class FlywaySchemaAndHealthTest extends AbstractPostgresIntegrationTest {
 
     @Test
-    void flywayV1MigrationAppliedAndSchemaObjectsExist() {
+    void flywayV1ToV3MigrationsAppliedAndSchemaObjectsExist() {
         Integer appliedMigrations = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM flyway_schema_history WHERE version IN ('1', '2') AND success = TRUE",
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE version IN ('1', '2', '3') AND success = TRUE",
                 Integer.class);
-        assertThat(appliedMigrations).isEqualTo(2);
+        assertThat(appliedMigrations).isEqualTo(3);
 
         List<String> tables = jdbcTemplate.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'",

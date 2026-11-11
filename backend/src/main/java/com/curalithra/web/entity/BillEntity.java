@@ -54,6 +54,9 @@ public class BillEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
+
     @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id ASC")
     private List<BillItemEntity> items = new ArrayList<>();
@@ -113,4 +116,7 @@ public class BillEntity {
 
     public List<PaymentEntity> getPayments() { return payments; }
     public void setPayments(List<PaymentEntity> payments) { this.payments = payments; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 }

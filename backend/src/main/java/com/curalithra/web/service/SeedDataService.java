@@ -75,12 +75,13 @@ public class SeedDataService {
         OffsetDateTime now = OffsetDateTime.now(clock);
         Map<String, DepartmentEntity> map = new HashMap<>();
         for (String[] def : defs) {
-            DepartmentEntity dept = departmentRepository.findByCodeIgnoreCase(def[1])
+            DepartmentEntity dept = departmentRepository.findByCodeIgnoreCaseAndDemoRecord(def[1], false)
                     .orElseGet(() -> {
                         DepartmentEntity d = new DepartmentEntity();
                         d.setName(def[0]);
                         d.setCode(def[1]);
                         d.setDescription(def[2]);
+                        d.setDemoRecord(false);
                         d.setCreatedAt(now);
                         return departmentRepository.save(d);
                     });
@@ -92,7 +93,7 @@ public class SeedDataService {
     @Transactional
     public void seedSyntheticHospitalDataset(UserEntity actor, String demoStaffPassphrase, boolean createSampleRoleAccounts) {
         Map<String, DepartmentEntity> depts = ensureDefaultDepartments();
-        if (doctorRepository.count() > 0 || patientRepository.count() > 0) {
+        if (doctorRepository.countByDemoRecord(false) > 0 || patientRepository.countByDemoRecord(false) > 0) {
             return;
         }
 

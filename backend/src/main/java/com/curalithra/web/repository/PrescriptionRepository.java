@@ -19,7 +19,8 @@ public interface PrescriptionRepository extends JpaRepository<PrescriptionEntity
     @EntityGraph(attributePaths = {"patient", "doctor", "medicalRecord"})
     @Query("""
             SELECT rx FROM PrescriptionEntity rx
-            WHERE (:q = '' OR LOWER(rx.medicationName) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE rx.demoRecord = :isDemo
+              AND (:q = '' OR LOWER(rx.medicationName) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(rx.patient.fullName) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(rx.patient.patientCode) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(rx.doctor.fullName) LIKE LOWER(CONCAT('%', :q, '%'))
@@ -34,7 +35,8 @@ public interface PrescriptionRepository extends JpaRepository<PrescriptionEntity
             @Param("status") PrescriptionStatus status,
             @Param("patientId") long patientId,
             @Param("recordId") long recordId,
+            @Param("isDemo") boolean isDemo,
             Pageable pageable);
 
-    long countByStatus(PrescriptionStatus status);
+    long countByStatusAndDemoRecord(PrescriptionStatus status, boolean demoRecord);
 }

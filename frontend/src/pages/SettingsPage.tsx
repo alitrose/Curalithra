@@ -36,6 +36,7 @@ export const SettingsPage: React.FC = () => {
   const { user, settings, hasPermission, refreshSettings } = useAuth();
   const { pushToast } = useToast();
 
+  const isDemo = Boolean(user?.demoUser);
   const canManageSettings = hasPermission('MANAGE_SETTINGS');
   const canManageUsers = hasPermission('MANAGE_USERS');
   const canViewAudit = hasPermission('VIEW_ACTIVITY_LOGS');
@@ -335,6 +336,11 @@ export const SettingsPage: React.FC = () => {
             <h2 className="mb-4 font-display text-lg font-bold text-horizon-text">
               Facility Configuration & Billing Defaults
             </h2>
+            {isDemo && (
+              <div className="mb-4 rounded-lg border border-horizon-emerald/50 bg-horizon-emerald/10 px-3.5 py-2.5 text-xs text-horizon-accent">
+                Public Demo Mode: Facility settings are read-only to preserve shared demo integrity.
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold text-horizon-muted">
@@ -492,10 +498,15 @@ export const SettingsPage: React.FC = () => {
             <div className="mt-5 flex justify-end">
               <button
                 type="submit"
-                disabled={savingSettings}
-                className="rounded-lg bg-horizon-accent px-5 py-2.5 text-sm font-bold text-horizon-nav hover:bg-horizon-accent-hover disabled:opacity-60"
+                disabled={savingSettings || isDemo}
+                title={isDemo ? 'System settings cannot be modified in Public Demo Mode' : undefined}
+                className="rounded-lg bg-horizon-accent px-5 py-2.5 text-sm font-bold text-horizon-nav hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {savingSettings ? 'Saving Settings...' : 'Save Hospital Settings'}
+                {savingSettings
+                  ? 'Saving Settings...'
+                  : isDemo
+                    ? 'Locked in Demo Mode'
+                    : 'Save Hospital Settings'}
               </button>
             </div>
           </form>
@@ -564,13 +575,22 @@ export const SettingsPage: React.FC = () => {
             </div>
             <button
               type="button"
+              disabled={isDemo}
+              title={isDemo ? 'Staff account creation is disabled in Public Demo Mode' : undefined}
               onClick={() => setCreateUserOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2 text-xs font-bold text-horizon-nav hover:bg-horizon-accent-hover"
+              className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2 text-xs font-bold text-horizon-nav hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
               <span>Add Staff User</span>
             </button>
           </div>
+
+          {isDemo && (
+            <div className="mb-4 rounded-lg border border-horizon-emerald/50 bg-horizon-emerald/10 px-3.5 py-2.5 text-xs text-horizon-accent">
+              Public Demo Mode: Viewing sandbox demo accounts only. Staff provisioning and password
+              resets are locked.
+            </div>
+          )}
 
           {loadingUsers ? (
             <p className="py-8 text-center text-sm text-horizon-muted">Loading staff users...</p>
@@ -619,8 +639,10 @@ export const SettingsPage: React.FC = () => {
                       <td className="px-3 py-3 text-right">
                         <button
                           type="button"
+                          disabled={isDemo}
+                          title={isDemo ? 'Staff access management is disabled in Public Demo Mode' : undefined}
                           onClick={() => openEditUserModal(u)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-horizon-border bg-horizon-bg px-2.5 py-1.5 text-xs text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text"
+                          className="inline-flex items-center gap-1 rounded-lg border border-horizon-border bg-horizon-bg px-2.5 py-1.5 text-xs text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                           <span>Edit Access</span>

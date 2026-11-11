@@ -81,6 +81,7 @@ public class BillingService {
             String query, PaymentStatus status, Long patientId,
             LocalDate fromDate, LocalDate toDate, int page, int size, String sortBy, String sortDir) {
         permissionService.requirePermission(RolePermission.VIEW_BILLING);
+        boolean demoScope = permissionService.isCurrentDemoUser();
         String cleanQuery = DomainValidators.optionalTrimmed(query);
         ZoneId appZone = clock.getZone();
         OffsetDateTime fromTs = fromDate != null ? fromDate.atStartOfDay(appZone).toOffsetDateTime() : MIN_TS;
@@ -94,6 +95,7 @@ public class BillingService {
                 patientId != null ? patientId : 0L,
                 fromTs,
                 toTs,
+                demoScope,
                 pageable);
 
         result.getContent().forEach(b -> {
@@ -101,8 +103,8 @@ public class BillingService {
             b.getPayments().size();
         });
 
-        BigDecimal totalBilled = billRepository.sumTotalBilledRevenue();
-        BigDecimal totalCollected = billRepository.sumCollectedRevenue();
+        BigDecimal totalBilled = billRepository.sumTotalBilledRevenue(demoScope);
+        BigDecimal totalCollected = billRepository.sumCollectedRevenue(demoScope);
         BigDecimal outstanding = totalBilled.subtract(totalCollected).max(BigDecimal.ZERO);
 
         return new BillingDtos.BillingPageResponse(
@@ -118,6 +120,7 @@ public class BillingService {
         permissionService.requirePermission(RolePermission.VIEW_BILLING);
         BillEntity bill = billRepository.findHydratedById(id)
                 .orElseThrow(() -> new NotFoundException("Invoice not found."));
+        permissionService.verifySameScope(bill.isDemoRecord(), "Invoice");
         bill.getItems().size();
         bill.getPayments().size();
         return DtoMapper.toBillDto(bill);
@@ -152,13 +155,16 @@ public class BillingService {
     public BillingDtos.BillDto createBill(BillingDtos.CreateBillRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_BILLING);
         UserEntity actor = permissionService.requireCurrentUserEntity();
+        boolean demoScope = actor.isDemoUser();
 
         PatientEntity patient = patientRepository.findById(req.patientId())
                 .orElseThrow(() -> new NotFoundException("Selected patient does not exist."));
+        permissionService.verifySameScope(patient.isDemoRecord(), "Selected patient");
         AppointmentEntity appointment = null;
         if (req.appointmentId() != null) {
             appointment = appointmentRepository.findById(req.appointmentId())
                     .orElseThrow(() -> new NotFoundException("Selected appointment does not exist."));
+            permissionService.verifySameScope(appointment.isDemoRecord(), "Selected appointment");
         }
 
         BillingCalculation calc = calculateTotals(req.items(), req.taxRate());
@@ -187,6 +193,7 @@ public class BillingService {
 
         BillEntity bill = new BillEntity();
         bill.setInvoiceNumber(String.format("INV-%d-%04d", LocalDate.now(clock).getYear(), seq));
+        bill.setDemoRecord(demoScope);
         bill.setPatient(patient);
         bill.setAppointment(appointment);
         bill.setSubtotal(calc.subtotal());
@@ -237,6 +244,7 @@ public class BillingService {
 
         BillEntity bill = billRepository.findHydratedById(billId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found."));
+        permissionService.verifySameScope(bill.isDemoRecord(), "Invoice");
         bill.getItems().size();
         bill.getPayments().size();
 
@@ -283,6 +291,7 @@ public class BillingService {
 
         BillEntity bill = billRepository.findHydratedById(billId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found."));
+        permissionService.verifySameScope(bill.isDemoRecord(), "Invoice");
         bill.getItems().size();
         bill.getPayments().size();
 
@@ -301,10 +310,12 @@ public class BillingService {
     @Transactional
     public void deleteBill(long billId) {
         permissionService.requirePermission(RolePermission.DELETE_BILLING);
+        permissionService.forbidDemoMutation("Deleting invoices");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         BillEntity bill = billRepository.findById(billId)
                 .orElseThrow(() -> new NotFoundException("Invoice not found."));
+        permissionService.verifySameScope(bill.isDemoRecord(), "Invoice");
         billRepository.delete(bill);
         billRepository.flush();
 

@@ -92,9 +92,10 @@ public class ReportService {
     }
 
     private DashboardAndReportDtos.ReportResultDto buildPatientReport(String q, LocalDate from, LocalDate to) {
+        boolean demoScope = permissionService.isCurrentDemoUser();
         ZoneId appZone = clock.getZone();
         List<PatientEntity> patients = patientRepository.searchAndFilter(
-                q, "", "", PageRequest.of(0, 1000, Sort.by(Sort.Direction.DESC, "registeredAt"))).getContent();
+                q, "", "", demoScope, PageRequest.of(0, 1000, Sort.by(Sort.Direction.DESC, "registeredAt"))).getContent();
         List<String> headers = List.of("Patient ID", "Full Name", "Gender", "DOB", "Blood Group", "Phone", "Registered On");
         List<List<String>> rows = new ArrayList<>();
         for (PatientEntity p : patients) {
@@ -113,16 +114,17 @@ public class ReportService {
         }
         Map<String, String> summary = new LinkedHashMap<>();
         summary.put("Total Matching Patients", String.valueOf(rows.size()));
-        summary.put("Total Registry Size", String.valueOf(patientRepository.count()));
+        summary.put("Total Registry Size", String.valueOf(patientRepository.countByDemoRecord(demoScope)));
         return new DashboardAndReportDtos.ReportResultDto(
                 ReportType.PATIENT_REGISTRATION, ReportType.PATIENT_REGISTRATION.getTitle(), headers, rows, summary);
     }
 
     private DashboardAndReportDtos.ReportResultDto buildDoctorActivityReport(String q, LocalDate from, LocalDate to) {
+        boolean demoScope = permissionService.isCurrentDemoUser();
         List<DoctorEntity> doctors = doctorRepository.searchAndFilter(
-                q, "", PageRequest.of(0, 500, Sort.by(Sort.Direction.ASC, "doctorCode"))).getContent();
+                q, "", demoScope, PageRequest.of(0, 500, Sort.by(Sort.Direction.ASC, "doctorCode"))).getContent();
         List<AppointmentEntity> allApts = appointmentRepository.searchAndFilter(
-                "", false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to, PageRequest.of(0, 2000)).getContent();
+                "", false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to, demoScope, PageRequest.of(0, 2000)).getContent();
 
         List<String> headers = List.of("Doctor ID", "Doctor Name", "Specialization", "Department",
                 "Total Visits", "Completed", "Pending", "Cancelled/No-Show");
@@ -157,8 +159,9 @@ public class ReportService {
     }
 
     private DashboardAndReportDtos.ReportResultDto buildAppointmentReport(String q, LocalDate from, LocalDate to) {
+        boolean demoScope = permissionService.isCurrentDemoUser();
         List<AppointmentEntity> list = appointmentRepository.searchAndFilter(
-                q, false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to,
+                q, false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to, demoScope,
                 PageRequest.of(0, 2000, Sort.by(Sort.Direction.DESC, "appointmentDate"))).getContent();
 
         List<String> headers = List.of("Appt ID", "Date", "Time", "Patient", "Doctor", "Specialization", "Status", "Reason");
@@ -184,8 +187,9 @@ public class ReportService {
     }
 
     private DashboardAndReportDtos.ReportResultDto buildStatusSummaryReport(LocalDate from, LocalDate to) {
+        boolean demoScope = permissionService.isCurrentDemoUser();
         List<AppointmentEntity> list = appointmentRepository.searchAndFilter(
-                "", false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to, PageRequest.of(0, 2000)).getContent();
+                "", false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to, demoScope, PageRequest.of(0, 2000)).getContent();
         Map<AppointmentStatus, Integer> counts = new EnumMap<>(AppointmentStatus.class);
         for (AppointmentStatus s : AppointmentStatus.values()) counts.put(s, 0);
         for (AppointmentEntity a : list) counts.merge(a.getStatus(), 1, Integer::sum);
@@ -206,12 +210,13 @@ public class ReportService {
     }
 
     private DashboardAndReportDtos.ReportResultDto buildRevenueReport(String q, LocalDate from, LocalDate to) {
+        boolean demoScope = permissionService.isCurrentDemoUser();
         ZoneId appZone = clock.getZone();
         String currencySymbol = settingsService.getCurrentSettingsSnapshot().getCurrencySymbol();
         OffsetDateTime fromTs = from.atStartOfDay(appZone).toOffsetDateTime();
         OffsetDateTime toTs = to.plusDays(1).atStartOfDay(appZone).toOffsetDateTime().minusNanos(1);
         List<BillEntity> bills = billRepository.searchAndFilter(
-                q, false, PaymentStatus.PENDING, 0L, fromTs, toTs,
+                q, false, PaymentStatus.PENDING, 0L, fromTs, toTs, demoScope,
                 PageRequest.of(0, 2000, Sort.by(Sort.Direction.DESC, "issuedAt"))).getContent();
 
         List<String> headers = List.of("Invoice #", "Issued Date", "Patient", "Subtotal", "Tax", "Total", "Paid", "Balance", "Status");

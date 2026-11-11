@@ -14,6 +14,7 @@ import com.curalithra.web.security.JwtService;
 import com.curalithra.web.security.PermissionService;
 import com.curalithra.web.util.DomainValidators;
 import com.curalithra.web.util.DtoMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -35,6 +37,7 @@ public class AuthService {
     private final SeedDataService seedDataService;
     private final AuditLogService auditLogService;
     private final Clock clock;
+    private final boolean demoEnabled;
 
     public AuthService(UserRepository userRepository,
                        DoctorRepository doctorRepository,
@@ -43,7 +46,8 @@ public class AuthService {
                        PermissionService permissionService,
                        SeedDataService seedDataService,
                        AuditLogService auditLogService,
-                       Clock clock) {
+                       Clock clock,
+                       @Value("${curalithra.demo.enabled:false}") boolean demoEnabled) {
         this.userRepository = userRepository;
         this.doctorRepository = doctorRepository;
         this.passwordEncoder = passwordEncoder;
@@ -52,20 +56,28 @@ public class AuthService {
         this.seedDataService = seedDataService;
         this.auditLogService = auditLogService;
         this.clock = clock;
+        this.demoEnabled = demoEnabled;
     }
 
     @Transactional(readOnly = true)
     public boolean isSetupRequired() {
-        return userRepository.count() == 0;
+        return !demoEnabled && userRepository.countByDemoUserFalse() == 0;
     }
 
     @Transactional
     public AuthDtos.AuthResponse setupInitialWorkspace(AuthDtos.InitialSetupRequest req) {
-        if (userRepository.count() > 0) {
+        if (demoEnabled) {
+            throw new AuthorizationException(HttpStatus.FORBIDDEN,
+                    "Workspace setup is disabled while Public Demo Mode is active.");
+        }
+        if (userRepository.countByDemoUserFalse() > 0) {
             throw new ConflictException("Initial workspace setup has already been completed.");
         }
         String cleanName = DomainValidators.requireNonBlank(req.fullName(), "Administrator full name");
         String cleanUser = DomainValidators.validateUsername(req.username());
+        if (cleanUser.toLowerCase(Locale.ROOT).startsWith("demo.")) {
+            throw new ValidationException("Usernames starting with 'demo.' are reserved for Public Demo accounts.");
+        }
         String cleanEmail = DomainValidators.validateEmail(req.email(), false);
 
         OffsetDateTime now = OffsetDateTime.now(clock);
@@ -76,6 +88,7 @@ public class AuthService {
         admin.setPasswordHash(passwordEncoder.encode(req.password()));
         admin.setRole(Role.ADMIN);
         admin.setActive(true);
+        admin.setDemoUser(false);
         admin.setCreatedAt(now);
         admin.setLastLoginAt(now);
 
@@ -105,6 +118,9 @@ public class AuthService {
         UserEntity user = found.orElseThrow(() ->
                 new AuthorizationException(HttpStatus.UNAUTHORIZED, "Invalid username/email or password."));
 
+        if (user.isDemoUser() && !demoEnabled) {
+            throw new AuthorizationException(HttpStatus.UNAUTHORIZED, "Invalid username/email or password.");
+        }
         if (!user.isActive()) {
             throw new AuthorizationException(HttpStatus.UNAUTHORIZED,
                     "This staff account is deactivated. Contact your Administrator.");
@@ -135,6 +151,7 @@ public class AuthService {
 
     @Transactional
     public AuthDtos.UserSummaryDto updateOwnProfile(AuthDtos.UpdateProfileRequest req) {
+        permissionService.forbidDemoMutation("Editing demo account profile details");
         UserEntity current = permissionService.requireCurrentUserEntity();
         String cleanName = DomainValidators.requireNonBlank(req.fullName(), "Full name");
         String cleanEmail = DomainValidators.validateEmail(req.email(), false);
@@ -156,7 +173,8 @@ public class AuthService {
     @Transactional(readOnly = true)
     public List<AuthDtos.UserSummaryDto> listAllStaff() {
         permissionService.requirePermission(RolePermission.MANAGE_USERS);
-        return userRepository.findAllByOrderByCreatedAtDesc().stream()
+        boolean demoScope = permissionService.isCurrentDemoUser();
+        return userRepository.findByDemoUserOrderByCreatedAtDesc(demoScope).stream()
                 .map(DtoMapper::toUserSummary)
                 .toList();
     }
@@ -164,10 +182,14 @@ public class AuthService {
     @Transactional
     public AuthDtos.UserSummaryDto createStaffUser(AuthDtos.CreateUserRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_USERS);
+        permissionService.forbidDemoMutation("Creating staff user accounts");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         String cleanName = DomainValidators.requireNonBlank(req.fullName(), "Full name");
         String cleanUsername = DomainValidators.validateUsername(req.username());
+        if (cleanUsername.toLowerCase(Locale.ROOT).startsWith("demo.")) {
+            throw new ValidationException("Usernames starting with 'demo.' are reserved for Public Demo accounts.");
+        }
         String cleanEmail = DomainValidators.validateEmail(req.email(), false);
 
         if (userRepository.existsByUsernameIgnoreCase(cleanUsername)) {
@@ -176,7 +198,8 @@ public class AuthService {
         if (!cleanEmail.isEmpty() && userRepository.existsByEmailIgnoreCase(cleanEmail)) {
             throw new ConflictException("Email '" + cleanEmail + "' is already assigned to another staff account.");
         }
-        if (req.linkedDoctorId() != null && doctorRepository.findById(req.linkedDoctorId()).isEmpty()) {
+        if (req.linkedDoctorId() != null && doctorRepository.findById(req.linkedDoctorId())
+                .filter(d -> !d.isDemoRecord()).isEmpty()) {
             throw new ValidationException("Selected linked doctor does not exist.");
         }
 
@@ -188,6 +211,7 @@ public class AuthService {
         u.setRole(req.role());
         u.setLinkedDoctorId(req.linkedDoctorId());
         u.setActive(true);
+        u.setDemoUser(false);
         u.setCreatedAt(OffsetDateTime.now(clock));
 
         UserEntity saved = userRepository.save(u);
@@ -199,17 +223,19 @@ public class AuthService {
     @Transactional
     public AuthDtos.UserSummaryDto updateUserRoleAndStatus(long targetUserId, AuthDtos.UpdateUserAccessRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_USERS);
+        permissionService.forbidDemoMutation("Modifying staff roles or account status");
         UserEntity actor = permissionService.requireCurrentUserEntity();
         if (actor.getId().equals(targetUserId) && (!req.active() || req.role() != Role.ADMIN)) {
             throw new ValidationException("You cannot deactivate or demote your own active Administrator account.");
         }
 
         UserEntity target = userRepository.findById(targetUserId)
+                .filter(u -> !u.isDemoUser())
                 .orElseThrow(() -> new NotFoundException("Staff user not found."));
         target.setRole(req.role());
         target.setActive(req.active());
         if (req.linkedDoctorId() != null) {
-            if (doctorRepository.findById(req.linkedDoctorId()).isEmpty()) {
+            if (doctorRepository.findById(req.linkedDoctorId()).filter(d -> !d.isDemoRecord()).isEmpty()) {
                 throw new ValidationException("Selected linked doctor does not exist.");
             }
             target.setLinkedDoctorId(req.linkedDoctorId());
@@ -231,6 +257,7 @@ public class AuthService {
 
     @Transactional
     public void changeOwnPassword(AuthDtos.ChangePasswordRequest req) {
+        permissionService.forbidDemoMutation("Changing shared demo account passwords");
         UserEntity current = permissionService.requireCurrentUserEntity();
         if (!passwordEncoder.matches(req.currentPassword(), current.getPasswordHash())) {
             throw new AuthorizationException(HttpStatus.BAD_REQUEST, "Current password is incorrect.");

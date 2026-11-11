@@ -8,12 +8,40 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 
 public final class AuthDtos {
     private AuthDtos() {}
 
     public record SetupStatusResponse(boolean setupRequired) {}
+
+    public record DemoRoleInfoDto(
+            Role role,
+            String title,
+            String username,
+            String summary,
+            String accessScope
+    ) {}
+
+    public record DemoStatusResponse(
+            boolean enabled,
+            String notice,
+            List<DemoRoleInfoDto> roles
+    ) {}
+
+    public record DemoLoginRequest(
+            @NotNull(message = "Demo role is required.")
+            Role role
+    ) {}
+
+    public record DemoResetResponse(
+            String message,
+            AuthResponse session,
+            long patientsCount,
+            long doctorsCount,
+            long appointmentsCount
+    ) {}
 
     public record InitialSetupRequest(
             @NotBlank(message = "Administrator full name is required.")
@@ -52,6 +80,7 @@ public final class AuthDtos {
             String roleDisplay,
             Long linkedDoctorId,
             boolean active,
+            boolean demoUser,
             OffsetDateTime createdAt,
             OffsetDateTime lastLoginAt,
             Set<String> permissions

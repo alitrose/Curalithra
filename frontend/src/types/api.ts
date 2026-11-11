@@ -41,6 +41,28 @@ export interface SetupStatusResponse {
   setupRequired: boolean;
 }
 
+export interface DemoRoleInfo {
+  role: Role;
+  title: string;
+  username: string;
+  summary: string;
+  accessScope: string;
+}
+
+export interface DemoStatusResponse {
+  enabled: boolean;
+  notice: string;
+  roles: DemoRoleInfo[];
+}
+
+export interface DemoResetResponse {
+  message: string;
+  session: AuthResponse;
+  patientsCount: number;
+  doctorsCount: number;
+  appointmentsCount: number;
+}
+
 export interface InitialSetupRequest {
   fullName: string;
   username: string;
@@ -64,6 +86,7 @@ export interface UserSummary {
   roleDisplay: string;
   linkedDoctorId: number | null;
   active: boolean;
+  demoUser?: boolean;
   createdAt: string;
   lastLoginAt: string | null;
   permissions: string[];

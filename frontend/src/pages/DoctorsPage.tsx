@@ -31,10 +31,11 @@ const EMPTY_DOC: DoctorRequest = {
 };
 
 export const DoctorsPage: React.FC = () => {
-  const { hasPermission, settings } = useAuth();
+  const { user, hasPermission, settings } = useAuth();
   const { pushToast } = useToast();
   const currency = settings?.currencySymbol || '₹';
 
+  const isDemo = Boolean(user?.demoUser);
   const canEdit = hasPermission('EDIT_DOCTORS');
   const canDelete = hasPermission('DELETE_DOCTORS');
 
@@ -352,9 +353,14 @@ export const DoctorsPage: React.FC = () => {
                     {canDelete && (
                       <button
                         type="button"
+                        disabled={isDemo}
                         onClick={() => setDeleteTarget(doc)}
-                        title="Delete doctor"
-                        className="rounded-lg border border-horizon-border bg-horizon-bg p-2 text-horizon-muted hover:border-red-500/60 hover:text-red-400"
+                        title={
+                          isDemo
+                            ? 'Deleting doctors is disabled in Public Demo Mode — use Reset Demo Data'
+                            : 'Delete doctor'
+                        }
+                        className="rounded-lg border border-horizon-border bg-horizon-bg p-2 text-horizon-muted hover:border-red-500/60 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

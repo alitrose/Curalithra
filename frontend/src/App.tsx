@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
+import { DemoBanner } from './components/DemoBanner';
 import { TopNavBar } from './components/TopNavBar';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -18,7 +19,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 const ProtectedShell: React.FC = () => {
-  const { user, initializing } = useAuth();
+  const { user, initializing, demoRevision } = useAuth();
 
   if (initializing) {
     return (
@@ -35,7 +36,8 @@ const ProtectedShell: React.FC = () => {
   return (
     <div className="min-h-screen bg-horizon-bg text-horizon-text">
       <TopNavBar />
-      <main className="w-full">
+      <DemoBanner />
+      <main className="w-full" key={`${user.id}-${demoRevision}`}>
         <Outlet />
       </main>
     </div>

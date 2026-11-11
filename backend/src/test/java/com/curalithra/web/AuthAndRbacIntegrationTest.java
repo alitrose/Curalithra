@@ -50,7 +50,21 @@ class AuthAndRbacIntegrationTest extends AbstractPostgresIntegrationTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.demoUser").value(false))
                 .andExpect(jsonPath("$.username").value(TEST_ADMIN_USER));
+
+        mockMvc.perform(get("/api/auth/demo-status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false));
+
+        mockMvc.perform(post("/api/auth/demo-login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("role", "ADMIN"))))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/demo/reset")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
     }
 
     @Test

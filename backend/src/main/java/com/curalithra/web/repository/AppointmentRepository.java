@@ -21,7 +21,8 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
     @EntityGraph(attributePaths = {"patient", "doctor", "doctor.department"})
     @Query("""
             SELECT a FROM AppointmentEntity a
-            WHERE (:q = '' OR LOWER(a.appointmentCode) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE a.demoRecord = :isDemo
+              AND (:q = '' OR LOWER(a.appointmentCode) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(a.patient.fullName) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(a.patient.patientCode) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(a.doctor.fullName) LIKE LOWER(CONCAT('%', :q, '%'))
@@ -40,6 +41,7 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
             @Param("patientId") long patientId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate,
+            @Param("isDemo") boolean isDemo,
             Pageable pageable);
 
     @EntityGraph(attributePaths = {"patient", "doctor", "doctor.department"})
@@ -54,28 +56,32 @@ public interface AppointmentRepository extends JpaRepository<AppointmentEntity, 
     @EntityGraph(attributePaths = {"patient", "doctor", "doctor.department"})
     @Query("""
             SELECT a FROM AppointmentEntity a
-            WHERE a.appointmentDate >= :today
+            WHERE a.demoRecord = :isDemo
+              AND a.appointmentDate >= :today
               AND a.status IN ('SCHEDULED', 'CONFIRMED')
             ORDER BY a.appointmentDate ASC, a.appointmentTime ASC
             """)
-    List<AppointmentEntity> findUpcoming(@Param("today") LocalDate today, Pageable pageable);
+    List<AppointmentEntity> findUpcoming(@Param("today") LocalDate today, @Param("isDemo") boolean isDemo, Pageable pageable);
 
-    long countByAppointmentDate(LocalDate date);
+    long countByAppointmentDateAndDemoRecord(LocalDate date, boolean demoRecord);
 
-    long countByStatus(AppointmentStatus status);
+    long countByStatusAndDemoRecord(AppointmentStatus status, boolean demoRecord);
 
-    @Query("SELECT COUNT(a) FROM AppointmentEntity a WHERE a.status IN ('SCHEDULED', 'CONFIRMED')")
-    long countPendingQueue();
+    long countByDemoRecord(boolean demoRecord);
 
-    @Query("SELECT a.status, COUNT(a) FROM AppointmentEntity a GROUP BY a.status")
-    List<Object[]> countByStatusGrouped();
+    @Query("SELECT COUNT(a) FROM AppointmentEntity a WHERE a.demoRecord = :isDemo AND a.status IN ('SCHEDULED', 'CONFIRMED')")
+    long countPendingQueue(@Param("isDemo") boolean isDemo);
+
+    @Query("SELECT a.status, COUNT(a) FROM AppointmentEntity a WHERE a.demoRecord = :isDemo GROUP BY a.status")
+    List<Object[]> countByStatusGrouped(@Param("isDemo") boolean isDemo);
 
     @Query(value = """
             SELECT TO_CHAR(appointment_date, 'YYYY-MM') AS ym, COUNT(*) AS cnt
             FROM appointments
+            WHERE is_demo = :isDemo
             GROUP BY ym
             ORDER BY ym DESC
             LIMIT :limit
             """, nativeQuery = true)
-    List<Object[]> countAppointmentsByMonth(@Param("limit") int limit);
+    List<Object[]> countAppointmentsByMonth(@Param("isDemo") boolean isDemo, @Param("limit") int limit);
 }

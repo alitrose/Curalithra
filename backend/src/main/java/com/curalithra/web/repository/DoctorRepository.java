@@ -16,12 +16,13 @@ public interface DoctorRepository extends JpaRepository<DoctorEntity, Long> {
     @EntityGraph(attributePaths = "department")
     Optional<DoctorEntity> findWithDepartmentById(Long id);
 
-    Optional<DoctorEntity> findByEmailIgnoreCase(String email);
+    Optional<DoctorEntity> findByEmailIgnoreCaseAndDemoRecord(String email, boolean demoRecord);
 
     @EntityGraph(attributePaths = "department")
     @Query("""
             SELECT d FROM DoctorEntity d
-            WHERE (:q = '' OR LOWER(d.doctorCode) LIKE LOWER(CONCAT('%', :q, '%'))
+            WHERE d.demoRecord = :isDemo
+              AND (:q = '' OR LOWER(d.doctorCode) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(d.fullName) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(d.specialization) LIKE LOWER(CONCAT('%', :q, '%'))
                    OR LOWER(d.department.name) LIKE LOWER(CONCAT('%', :q, '%')))
@@ -30,10 +31,13 @@ public interface DoctorRepository extends JpaRepository<DoctorEntity, Long> {
     Page<DoctorEntity> searchAndFilter(
             @Param("q") String query,
             @Param("specialization") String specialization,
+            @Param("isDemo") boolean isDemo,
             Pageable pageable);
 
-    @Query("SELECT DISTINCT d.specialization FROM DoctorEntity d ORDER BY d.specialization ASC")
-    List<String> findDistinctSpecializations();
+    @Query("SELECT DISTINCT d.specialization FROM DoctorEntity d WHERE d.demoRecord = :isDemo ORDER BY d.specialization ASC")
+    List<String> findDistinctSpecializations(@Param("isDemo") boolean isDemo);
 
-    long countByActiveTrue();
+    long countByActiveTrueAndDemoRecord(boolean demoRecord);
+
+    long countByDemoRecord(boolean demoRecord);
 }

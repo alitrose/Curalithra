@@ -83,6 +83,8 @@ export const ProfilePage: React.FC = () => {
 
   if (!user) return null;
 
+  const isDemo = Boolean(user.demoUser);
+
   return (
     <section className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-6">
@@ -93,6 +95,13 @@ export const ProfilePage: React.FC = () => {
           My Staff Profile
         </h1>
       </div>
+
+      {isDemo && (
+        <div className="mb-5 rounded-xl border border-horizon-emerald/50 bg-horizon-emerald/10 px-4 py-3 text-xs text-horizon-accent">
+          Public Demo Mode: Profile edits and password rotation are disabled for shared sandbox
+          accounts. Switch roles or reset data from the Demo Mode banner above.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         {/* Account Overview & Permissions */}
@@ -182,10 +191,11 @@ export const ProfilePage: React.FC = () => {
             <div className="mt-4 flex justify-end">
               <button
                 type="submit"
-                disabled={savingProfile}
-                className="rounded-lg bg-horizon-accent px-5 py-2 text-xs font-bold text-horizon-nav hover:bg-horizon-accent-hover disabled:opacity-60"
+                disabled={savingProfile || isDemo}
+                title={isDemo ? 'Profile changes are disabled in Public Demo Mode' : undefined}
+                className="rounded-lg bg-horizon-accent px-5 py-2 text-xs font-bold text-horizon-nav hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {savingProfile ? 'Saving...' : 'Save Profile'}
+                {savingProfile ? 'Saving...' : isDemo ? 'Locked in Demo Mode' : 'Save Profile'}
               </button>
             </div>
           </form>
@@ -243,10 +253,11 @@ export const ProfilePage: React.FC = () => {
             <div className="mt-4 flex justify-end">
               <button
                 type="submit"
-                disabled={savingPassword}
-                className="rounded-lg border border-horizon-emerald bg-horizon-emerald px-5 py-2 text-xs font-bold text-white hover:bg-horizon-emerald/85 disabled:opacity-60"
+                disabled={savingPassword || isDemo}
+                title={isDemo ? 'Password rotation is disabled in Public Demo Mode' : undefined}
+                className="rounded-lg border border-horizon-emerald bg-horizon-emerald px-5 py-2 text-xs font-bold text-white hover:bg-horizon-emerald/85 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {savingPassword ? 'Updating...' : 'Update Password'}
+                {savingPassword ? 'Updating...' : isDemo ? 'Locked in Demo Mode' : 'Update Password'}
               </button>
             </div>
           </form>

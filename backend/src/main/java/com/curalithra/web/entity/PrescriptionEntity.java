@@ -46,6 +46,9 @@ public class PrescriptionEntity {
     @Column(name = "prescribed_at", nullable = false)
     private OffsetDateTime prescribedAt;
 
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -78,4 +81,7 @@ public class PrescriptionEntity {
 
     public OffsetDateTime getPrescribedAt() { return prescribedAt; }
     public void setPrescribedAt(OffsetDateTime prescribedAt) { this.prescribedAt = prescribedAt; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 }

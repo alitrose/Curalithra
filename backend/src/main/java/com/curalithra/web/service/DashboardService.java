@@ -71,14 +71,15 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public DashboardAndReportDtos.DashboardStatsDto loadDashboardStats(LocalDate fromDate, LocalDate toDate) {
         permissionService.requirePermission(RolePermission.VIEW_DASHBOARD);
+        boolean demoScope = permissionService.isCurrentDemoUser();
 
         ZoneId appZone = clock.getZone();
         LocalDate today = LocalDate.now(clock);
         boolean hasDateFilter = fromDate != null || toDate != null;
 
         long totalPatients;
-        long totalDoctors = doctorRepository.countByActiveTrue();
-        long todaysAppointments = appointmentRepository.countByAppointmentDate(today);
+        long totalDoctors = doctorRepository.countByActiveTrueAndDemoRecord(demoScope);
+        long todaysAppointments = appointmentRepository.countByAppointmentDateAndDemoRecord(today, demoScope);
         long completedAppointments;
         long pendingAppointments;
         long cancelledAppointments;
@@ -96,31 +97,31 @@ public class DashboardService {
         List<PatientEntity> recentPatientsRaw;
 
         if (!hasDateFilter) {
-            totalPatients = patientRepository.count();
-            completedAppointments = appointmentRepository.countByStatus(AppointmentStatus.COMPLETED);
-            pendingAppointments = appointmentRepository.countPendingQueue();
-            for (Object[] row : appointmentRepository.countByStatusGrouped()) {
+            totalPatients = patientRepository.countByDemoRecord(demoScope);
+            completedAppointments = appointmentRepository.countByStatusAndDemoRecord(AppointmentStatus.COMPLETED, demoScope);
+            pendingAppointments = appointmentRepository.countPendingQueue(demoScope);
+            for (Object[] row : appointmentRepository.countByStatusGrouped(demoScope)) {
                 AppointmentStatus status = (AppointmentStatus) row[0];
                 long count = ((Number) row[1]).longValue();
                 statusCounts.put(status, count);
             }
             cancelledAppointments = statusCounts.getOrDefault(AppointmentStatus.CANCELLED, 0L);
 
-            totalRevenue = billRepository.sumTotalBilledRevenue();
-            collectedRevenue = billRepository.sumCollectedRevenue();
+            totalRevenue = billRepository.sumTotalBilledRevenue(demoScope);
+            collectedRevenue = billRepository.sumCollectedRevenue(demoScope);
             pendingRevenue = totalRevenue.subtract(collectedRevenue).max(BigDecimal.ZERO);
 
-            regTrend = toMonthlyCounts(patientRepository.countRegistrationsByMonth(6, appZone.getId()));
-            apptTrend = toMonthlyCounts(appointmentRepository.countAppointmentsByMonth(6));
+            regTrend = toMonthlyCounts(patientRepository.countRegistrationsByMonth(demoScope, 6, appZone.getId()));
+            apptTrend = toMonthlyCounts(appointmentRepository.countAppointmentsByMonth(demoScope, 6));
 
             revTrend = new ArrayList<>();
-            for (Object[] row : billRepository.sumMonthlyRevenue(6, appZone.getId())) {
+            for (Object[] row : billRepository.sumMonthlyRevenue(demoScope, 6, appZone.getId())) {
                 String month = row[0].toString();
                 BigDecimal amount = row[1] instanceof BigDecimal bd ? bd : new BigDecimal(row[1].toString());
                 revTrend.add(new DashboardAndReportDtos.MonthlyRevenueDto(month, amount));
             }
             Collections.reverse(revTrend);
-            recentPatientsRaw = patientRepository.findTop6ByOrderByRegisteredAtDesc();
+            recentPatientsRaw = patientRepository.findTop6ByDemoRecordOrderByRegisteredAtDesc(demoScope);
         } else {
             LocalDate from = fromDate != null ? fromDate : MIN_DATE;
             LocalDate to = toDate != null ? toDate : MAX_DATE;
@@ -128,7 +129,7 @@ public class DashboardService {
             OffsetDateTime toTs = to.plusDays(1).atStartOfDay(appZone).toOffsetDateTime().minusNanos(1);
 
             List<PatientEntity> allPatients = patientRepository.searchAndFilter(
-                    "", "", "", PageRequest.of(0, 2000, Sort.by(Sort.Direction.DESC, "registeredAt"))).getContent();
+                    "", "", "", demoScope, PageRequest.of(0, 2000, Sort.by(Sort.Direction.DESC, "registeredAt"))).getContent();
             List<PatientEntity> filteredPatients = allPatients.stream()
                     .filter(p -> !p.getRegisteredAt().isBefore(fromTs) && !p.getRegisteredAt().isAfter(toTs))
                     .toList();
@@ -144,7 +145,7 @@ public class DashboardService {
                     .toList();
 
             List<AppointmentEntity> rangeApts = appointmentRepository.searchAndFilter(
-                    "", false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to,
+                    "", false, AppointmentStatus.SCHEDULED, 0L, 0L, from, to, demoScope,
                     PageRequest.of(0, 2000, Sort.by(Sort.Direction.ASC, "appointmentDate"))).getContent();
             Map<String, Long> aptByMonth = new TreeMap<>();
             for (AppointmentEntity a : rangeApts) {
@@ -160,7 +161,7 @@ public class DashboardService {
                     .toList();
 
             List<BillEntity> rangeBills = billRepository.searchAndFilter(
-                    "", false, PaymentStatus.PENDING, 0L, fromTs, toTs,
+                    "", false, PaymentStatus.PENDING, 0L, fromTs, toTs, demoScope,
                     PageRequest.of(0, 2000, Sort.by(Sort.Direction.ASC, "issuedAt"))).getContent();
             BigDecimal billed = BigDecimal.ZERO;
             BigDecimal collected = BigDecimal.ZERO;
@@ -186,11 +187,11 @@ public class DashboardService {
                     s.name(), s.getDisplayName(), statusCounts.getOrDefault(s, 0L)));
         }
 
-        var upcoming = appointmentRepository.findUpcoming(today, PageRequest.of(0, 6))
+        var upcoming = appointmentRepository.findUpcoming(today, demoScope, PageRequest.of(0, 6))
                 .stream().map(DtoMapper::toAppointmentDto).toList();
         var recentPatients = recentPatientsRaw.stream().map(DtoMapper::toPatientDto).toList();
         List<CommonDtos.ActivityLogDto> recentActivities = permissionService.hasPermission(RolePermission.VIEW_ACTIVITY_LOGS)
-                ? activityLogRepository.findTop10ByOrderByCreatedAtDesc().stream().map(DtoMapper::toActivityLogDto).toList()
+                ? activityLogRepository.findTop10ByDemoRecordOrderByCreatedAtDesc(demoScope).stream().map(DtoMapper::toActivityLogDto).toList()
                 : List.of();
         var notifications = notificationService.buildNotifications().items();
 

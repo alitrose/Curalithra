@@ -32,6 +32,9 @@ public class ActivityLogEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "is_demo", nullable = false)
+    private boolean demoRecord = false;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -55,4 +58,7 @@ public class ActivityLogEntity {
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public boolean isDemoRecord() { return demoRecord; }
+    public void setDemoRecord(boolean demoRecord) { this.demoRecord = demoRecord; }
 }

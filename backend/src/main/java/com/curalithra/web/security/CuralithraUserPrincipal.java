@@ -20,10 +20,12 @@ public class CuralithraUserPrincipal implements UserDetails {
     private final Role role;
     private final Long linkedDoctorId;
     private final boolean active;
+    private final boolean demoUser;
     private final List<GrantedAuthority> authorities;
 
     public CuralithraUserPrincipal(Long id, String username, String fullName, String email,
-                                   String passwordHash, Role role, Long linkedDoctorId, boolean active) {
+                                   String passwordHash, Role role, Long linkedDoctorId,
+                                   boolean active, boolean demoUser) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
@@ -32,6 +34,7 @@ public class CuralithraUserPrincipal implements UserDetails {
         this.role = role;
         this.linkedDoctorId = linkedDoctorId;
         this.active = active;
+        this.demoUser = demoUser;
 
         List<GrantedAuthority> auths = new ArrayList<>();
         auths.add(new SimpleGrantedAuthority("ROLE_" + role.name()));
@@ -47,6 +50,7 @@ public class CuralithraUserPrincipal implements UserDetails {
     public Role getRole() { return role; }
     public Long getLinkedDoctorId() { return linkedDoctorId; }
     public boolean isActive() { return active; }
+    public boolean isDemoUser() { return demoUser; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }

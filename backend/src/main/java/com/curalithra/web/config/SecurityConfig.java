@@ -85,8 +85,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/health", "/actuator/health").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/setup-status").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/setup-status", "/api/auth/demo-status").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login", "/api/auth/demo-login").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -104,7 +104,7 @@ public class SecurityConfig {
                 .toList();
         cfg.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:5173") : origins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));
+        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
         cfg.setExposedHeaders(List.of("Content-Disposition"));
         cfg.setAllowCredentials(false);
         cfg.setMaxAge(3600L);

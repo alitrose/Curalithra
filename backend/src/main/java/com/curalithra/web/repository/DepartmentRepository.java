@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DepartmentRepository extends JpaRepository<DepartmentEntity, Long> {
-    Optional<DepartmentEntity> findByCodeIgnoreCase(String code);
-    List<DepartmentEntity> findAllByOrderByNameAsc();
+    Optional<DepartmentEntity> findByCodeIgnoreCaseAndDemoRecord(String code, boolean demoRecord);
+    List<DepartmentEntity> findByDemoRecordOrderByNameAsc(boolean demoRecord);
+    long countByDemoRecord(boolean demoRecord);
 }

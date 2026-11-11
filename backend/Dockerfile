@@ -19,4 +19,4 @@ RUN chown curalithra:curalithra app.jar
 USER curalithra
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=65.0", "-XX:+UseSerialGC", "-jar", "app.jar"]
