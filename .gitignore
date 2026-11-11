@@ -1,0 +1,31 @@
+# Environment & secret files (NEVER commit credentials)
+.env
+.env.*
+!.env.example
+
+# Maven / Java build artifacts
+target/
+*.class
+*.jar
+*.war
+*.log
+hs_err_pid*
+
+# Node / Vite frontend artifacts
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db

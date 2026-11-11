@@ -1,0 +1,19 @@
+spring:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+
+curalithra:
+  bootstrap:
+    enabled: false
+  security:
+    cors-allowed-origins: http://localhost:5173
+
+logging:
+  level:
+    com.curalithra.web: INFO
+    org.flywaydb: INFO
