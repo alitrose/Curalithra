@@ -141,6 +141,7 @@ public class AppointmentService {
     @Transactional
     public AppointmentDtos.AppointmentDto scheduleAppointment(AppointmentDtos.AppointmentRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_APPOINTMENTS);
+        permissionService.forbidDemoMutation("Scheduling appointments");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         PatientEntity patient = patientRepository.findById(req.patientId())
@@ -193,6 +194,7 @@ public class AppointmentService {
     @Transactional
     public AppointmentDtos.AppointmentDto updateAppointment(long id, AppointmentDtos.AppointmentRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_APPOINTMENTS);
+        permissionService.forbidDemoMutation("Updating appointments");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         AppointmentEntity existing = appointmentRepository.findHydratedById(id)
@@ -243,6 +245,7 @@ public class AppointmentService {
         } else {
             permissionService.requirePermission(RolePermission.MANAGE_APPOINTMENTS);
         }
+        permissionService.forbidDemoMutation("Updating appointment status");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         AppointmentEntity existing = appointmentRepository.findHydratedById(id)

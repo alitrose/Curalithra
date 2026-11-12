@@ -228,8 +228,14 @@ export const DoctorsPage: React.FC = () => {
         {canEdit && (
           <button
             type="button"
+            disabled={isDemo}
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover"
+            title={
+              isDemo
+                ? 'Adding specialists is disabled in Read-Only Public Demo Mode'
+                : 'Add Specialist'
+            }
+            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-horizon-accent"
           >
             <Plus className="h-4 w-4" />
             <span>Add Specialist</span>
@@ -343,9 +349,14 @@ export const DoctorsPage: React.FC = () => {
                     {canEdit && (
                       <button
                         type="button"
+                        disabled={isDemo}
                         onClick={() => openEditModal(doc)}
-                        title="Edit doctor"
-                        className="rounded-lg border border-horizon-border bg-horizon-bg p-2 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text"
+                        title={
+                          isDemo
+                            ? 'Editing doctor profiles is disabled in Read-Only Public Demo Mode'
+                            : 'Edit doctor'
+                        }
+                        className="rounded-lg border border-horizon-border bg-horizon-bg p-2 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -357,7 +368,7 @@ export const DoctorsPage: React.FC = () => {
                         onClick={() => setDeleteTarget(doc)}
                         title={
                           isDemo
-                            ? 'Deleting doctors is disabled in Public Demo Mode — use Reset Demo Data'
+                            ? 'Deleting doctors is disabled in Read-Only Public Demo Mode'
                             : 'Delete doctor'
                         }
                         className="rounded-lg border border-horizon-border bg-horizon-bg p-2 text-horizon-muted hover:border-red-500/60 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"

@@ -135,6 +135,7 @@ public class PatientService {
     @Transactional
     public PatientDtos.PatientDto registerPatient(PatientDtos.PatientRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_PATIENTS);
+        permissionService.forbidDemoMutation("Registering patients");
         UserEntity actor = permissionService.requireCurrentUserEntity();
         boolean demoScope = actor.isDemoUser();
 
@@ -161,6 +162,7 @@ public class PatientService {
     @Transactional
     public PatientDtos.PatientDto updatePatient(long id, PatientDtos.PatientRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_PATIENTS);
+        permissionService.forbidDemoMutation("Updating patient records");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         PatientEntity entity = patientRepository.findById(id)

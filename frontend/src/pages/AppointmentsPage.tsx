@@ -53,10 +53,11 @@ function timeToMinutes(t: string): number {
 }
 
 export const AppointmentsPage: React.FC = () => {
-  const { hasPermission, settings } = useAuth();
+  const { user, hasPermission, settings } = useAuth();
   const { pushToast } = useToast();
   const defaultDuration = settings?.defaultAppointmentMinutes || 30;
 
+  const isDemo = Boolean(user?.demoUser);
   const canManage = hasPermission('MANAGE_APPOINTMENTS');
   const canCancel = hasPermission('CANCEL_APPOINTMENTS');
 
@@ -359,10 +360,15 @@ export const AppointmentsPage: React.FC = () => {
       {canManage && a.status === 'SCHEDULED' && (
         <button
           type="button"
+          disabled={isDemo}
           onClick={() => handleStatusChange(a, 'CONFIRMED')}
-          title="Confirm appointment"
+          title={
+            isDemo
+              ? 'Updating appointment status is disabled in Read-Only Public Demo Mode'
+              : 'Confirm appointment'
+          }
           aria-label={`Confirm ${a.appointmentCode}`}
-          className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-accent hover:text-horizon-accent"
+          className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-accent hover:text-horizon-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
         >
           <CheckCircle2 className="h-4 w-4" />
         </button>
@@ -370,10 +376,15 @@ export const AppointmentsPage: React.FC = () => {
       {canManage && (a.status === 'SCHEDULED' || a.status === 'CONFIRMED') && (
         <button
           type="button"
+          disabled={isDemo}
           onClick={() => handleStatusChange(a, 'COMPLETED')}
-          title="Mark completed"
+          title={
+            isDemo
+              ? 'Updating appointment status is disabled in Read-Only Public Demo Mode'
+              : 'Mark completed'
+          }
           aria-label={`Complete ${a.appointmentCode}`}
-          className="rounded-lg border border-horizon-border bg-horizon-bg px-2 py-1 text-[11px] font-semibold text-emerald-300 hover:border-emerald-400"
+          className="rounded-lg border border-horizon-border bg-horizon-bg px-2 py-1 text-[11px] font-semibold text-emerald-300 hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border"
         >
           Done
         </button>
@@ -381,10 +392,15 @@ export const AppointmentsPage: React.FC = () => {
       {canManage && a.status !== 'CANCELLED' && (
         <button
           type="button"
+          disabled={isDemo}
           onClick={() => openEditModal(a)}
-          title="Edit appointment"
+          title={
+            isDemo
+              ? 'Editing appointments is disabled in Read-Only Public Demo Mode'
+              : 'Edit appointment'
+          }
           aria-label={`Edit ${a.appointmentCode}`}
-          className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text"
+          className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
         >
           <Pencil className="h-4 w-4" />
         </button>
@@ -392,10 +408,15 @@ export const AppointmentsPage: React.FC = () => {
       {canCancel && (a.status === 'SCHEDULED' || a.status === 'CONFIRMED') && (
         <button
           type="button"
+          disabled={isDemo}
           onClick={() => setCancelTarget(a)}
-          title="Cancel appointment"
+          title={
+            isDemo
+              ? 'Cancelling appointments is disabled in Read-Only Public Demo Mode'
+              : 'Cancel appointment'
+          }
           aria-label={`Cancel ${a.appointmentCode}`}
-          className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-red-500/60 hover:text-red-400"
+          className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-red-500/60 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
         >
           <XCircle className="h-4 w-4" />
         </button>
@@ -446,8 +467,14 @@ export const AppointmentsPage: React.FC = () => {
           {canManage && (
             <button
               type="button"
+              disabled={isDemo}
               onClick={openCreateModal}
-              className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover"
+              title={
+                isDemo
+                  ? 'Scheduling appointments is disabled in Read-Only Public Demo Mode'
+                  : 'Schedule Appointment'
+              }
+              className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-horizon-accent"
             >
               <Plus className="h-4 w-4" />
               <span>Schedule Appointment</span>

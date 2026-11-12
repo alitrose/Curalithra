@@ -163,6 +163,7 @@ public class NotificationService {
     @Transactional
     public CommonDtos.NotificationsResponse markAsRead(String notificationId) {
         CuralithraUserPrincipal principal = permissionService.requireAuthenticatedPrincipal();
+        permissionService.forbidDemoMutation("Modifying notification read state");
         String cleanKey = DomainValidators.requireNonBlank(notificationId, "Notification ID");
         if (cleanKey.length() > 100) {
             cleanKey = cleanKey.substring(0, 100);
@@ -181,6 +182,7 @@ public class NotificationService {
     @Transactional
     public CommonDtos.NotificationsResponse markAllAsRead() {
         CuralithraUserPrincipal principal = permissionService.requireAuthenticatedPrincipal();
+        permissionService.forbidDemoMutation("Modifying notification read state");
         CommonDtos.NotificationsResponse current = buildNotifications();
         OffsetDateTime now = OffsetDateTime.now(clock);
         for (CommonDtos.NotificationItemDto item : current.items()) {

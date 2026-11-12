@@ -154,6 +154,7 @@ public class BillingService {
     @Transactional
     public BillingDtos.BillDto createBill(BillingDtos.CreateBillRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_BILLING);
+        permissionService.forbidDemoMutation("Creating invoices");
         UserEntity actor = permissionService.requireCurrentUserEntity();
         boolean demoScope = actor.isDemoUser();
 
@@ -240,6 +241,7 @@ public class BillingService {
     @Transactional
     public BillingDtos.BillDto recordPayment(long billId, BillingDtos.RecordPaymentRequest req) {
         permissionService.requirePermission(RolePermission.MANAGE_BILLING);
+        permissionService.forbidDemoMutation("Recording payments");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         BillEntity bill = billRepository.findHydratedById(billId)
@@ -287,6 +289,7 @@ public class BillingService {
     @Transactional
     public BillingDtos.BillDto cancelBill(long billId) {
         permissionService.requirePermission(RolePermission.MANAGE_BILLING);
+        permissionService.forbidDemoMutation("Cancelling invoices");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         BillEntity bill = billRepository.findHydratedById(billId)

@@ -117,6 +117,7 @@ public class DoctorService {
     @Transactional
     public DoctorDtos.DoctorDto createDoctor(DoctorDtos.DoctorRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_DOCTORS);
+        permissionService.forbidDemoMutation("Adding doctors");
         UserEntity actor = permissionService.requireCurrentUserEntity();
         boolean demoScope = actor.isDemoUser();
 
@@ -140,6 +141,7 @@ public class DoctorService {
     @Transactional
     public DoctorDtos.DoctorDto updateDoctor(long id, DoctorDtos.DoctorRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_DOCTORS);
+        permissionService.forbidDemoMutation("Updating doctor profiles");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         DoctorEntity entity = doctorRepository.findWithDepartmentById(id)

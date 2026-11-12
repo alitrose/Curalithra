@@ -342,8 +342,14 @@ export const BillingPage: React.FC = () => {
         {canManage && (
           <button
             type="button"
+            disabled={isDemo}
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover"
+            title={
+              isDemo
+                ? 'Creating invoices is disabled in Read-Only Public Demo Mode'
+                : 'Create Invoice'
+            }
+            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-horizon-accent"
           >
             <Plus className="h-4 w-4" />
             <span>Create Invoice</span>
@@ -510,10 +516,15 @@ export const BillingPage: React.FC = () => {
                           {canManage && b.paymentStatus !== 'CANCELLED' && b.paidAmount === 0 && (
                             <button
                               type="button"
+                              disabled={isDemo}
                               onClick={() => setCancelTarget(b)}
-                              title="Cancel invoice"
+                              title={
+                                isDemo
+                                  ? 'Cancelling invoices is disabled in Read-Only Public Demo Mode'
+                                  : 'Cancel invoice'
+                              }
                               aria-label={`Cancel ${b.invoiceNumber}`}
-                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-amber-500/60 hover:text-amber-300"
+                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-amber-500/60 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                             >
                               <Ban className="h-4 w-4" />
                             </button>
@@ -525,7 +536,7 @@ export const BillingPage: React.FC = () => {
                               onClick={() => setDeleteTarget(b)}
                               title={
                                 isDemo
-                                  ? 'Deleting invoices is disabled in Public Demo Mode — use Reset Demo Data'
+                                  ? 'Deleting invoices is disabled in Read-Only Public Demo Mode'
                                   : 'Delete invoice'
                               }
                               aria-label={`Delete ${b.invoiceNumber}`}
@@ -920,6 +931,14 @@ export const BillingPage: React.FC = () => {
             {canManage &&
               (selectedBill.paymentStatus === 'PENDING' ||
                 selectedBill.paymentStatus === 'PARTIALLY_PAID') && (
+                isDemo ? (
+                  <div className="rounded-xl border border-horizon-emerald/40 bg-horizon-emerald/10 p-3.5 text-xs text-horizon-muted print:hidden">
+                    <span className="font-semibold text-horizon-accent">
+                      Read-Only Demo Mode:
+                    </span>{' '}
+                    Recording payments is disabled to keep shared demonstration billing balances consistent. You can still print receipts or download the official OpenPDF invoice below.
+                  </div>
+                ) : (
                 <form
                   onSubmit={handleRecordPayment}
                   className="rounded-xl border border-horizon-border bg-horizon-bg p-4 print:hidden"
@@ -988,6 +1007,7 @@ export const BillingPage: React.FC = () => {
                     </button>
                   </div>
                 </form>
+                )
               )}
 
             <div className="flex flex-wrap justify-end gap-2 print:hidden">

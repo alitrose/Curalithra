@@ -87,7 +87,10 @@ async function parseErrorResponse(res: Response): Promise<ApiRequestError> {
   }
 
   let fallbackMessage = `Request failed with HTTP ${res.status}`;
-  if (res.status === 405) {
+  if (res.status === 429) {
+    fallbackMessage =
+      'Too many requests in a short window. Please wait a moment and try again.';
+  } else if (res.status === 405) {
     fallbackMessage =
       'API endpoint rejected this request (HTTP 405). Verify VITE_API_BASE_URL points to the Spring Boot API (/api), not a static web host.';
   } else if (res.status === 502 || res.status === 503) {

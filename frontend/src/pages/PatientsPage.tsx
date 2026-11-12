@@ -211,8 +211,14 @@ export const PatientsPage: React.FC = () => {
         {canEdit && (
           <button
             type="button"
+            disabled={isDemo}
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover"
+            title={
+              isDemo
+                ? 'Registering patients is disabled in Read-Only Public Demo Mode'
+                : 'Register Patient'
+            }
+            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-horizon-accent"
           >
             <Plus className="h-4 w-4" />
             <span>Register Patient</span>
@@ -332,10 +338,15 @@ export const PatientsPage: React.FC = () => {
                           {canEdit && (
                             <button
                               type="button"
+                              disabled={isDemo}
                               onClick={() => openEditModal(p)}
-                              title="Edit patient"
+                              title={
+                                isDemo
+                                  ? 'Editing patient records is disabled in Read-Only Public Demo Mode'
+                                  : 'Edit patient'
+                              }
                               aria-label={`Edit ${p.fullName}`}
-                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text"
+                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -347,7 +358,7 @@ export const PatientsPage: React.FC = () => {
                               onClick={() => setDeleteTarget(p)}
                               title={
                                 isDemo
-                                  ? 'Deleting patients is disabled in Public Demo Mode — use Reset Demo Data'
+                                  ? 'Deleting patients is disabled in Read-Only Public Demo Mode'
                                   : 'Delete patient'
                               }
                               aria-label={`Delete ${p.fullName}`}

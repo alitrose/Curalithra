@@ -93,6 +93,7 @@ public class MedicalRecordService {
     @Transactional
     public MedicalRecordDtos.MedicalRecordDto createRecord(MedicalRecordDtos.MedicalRecordRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_MEDICAL_RECORDS);
+        permissionService.forbidDemoMutation("Creating medical records");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         MedicalRecordEntity entity = new MedicalRecordEntity();
@@ -110,6 +111,7 @@ public class MedicalRecordService {
     @Transactional
     public MedicalRecordDtos.MedicalRecordDto updateRecord(long id, MedicalRecordDtos.MedicalRecordRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_MEDICAL_RECORDS);
+        permissionService.forbidDemoMutation("Updating medical records");
         UserEntity actor = permissionService.requireCurrentUserEntity();
 
         MedicalRecordEntity entity = medicalRecordRepository.findHydratedById(id)
@@ -153,6 +155,7 @@ public class MedicalRecordService {
     @Transactional
     public MedicalRecordDtos.PrescriptionDto createStandalonePrescription(MedicalRecordDtos.StandalonePrescriptionRequest req) {
         permissionService.requirePermission(RolePermission.EDIT_MEDICAL_RECORDS);
+        permissionService.forbidDemoMutation("Issuing prescriptions");
         UserEntity actor = permissionService.requireCurrentUserEntity();
         boolean demoScope = actor.isDemoUser();
 
@@ -212,6 +215,7 @@ public class MedicalRecordService {
     @Transactional
     public MedicalRecordDtos.PrescriptionDto updatePrescriptionStatus(long prescriptionId, PrescriptionStatus status) {
         permissionService.requirePermission(RolePermission.EDIT_MEDICAL_RECORDS);
+        permissionService.forbidDemoMutation("Updating prescription status");
         UserEntity actor = permissionService.requireCurrentUserEntity();
         if (status == null) {
             throw new ValidationException("Prescription status is required.");

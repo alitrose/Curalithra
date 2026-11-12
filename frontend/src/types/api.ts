@@ -44,9 +44,9 @@ export interface SetupStatusResponse {
 export interface DemoRoleInfo {
   role: Role;
   title: string;
-  username: string;
   summary: string;
   accessScope: string;
+  highlights?: string[];
 }
 
 export interface DemoStatusResponse {

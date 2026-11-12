@@ -106,28 +106,51 @@ public class DemoService {
         }
         return new AuthDtos.DemoStatusResponse(
                 true,
-                "Explore CURALITHRA in an isolated sandbox populated with 100% synthetic hospital data. Non-destructive demo safety is active.",
+                "Read-only synthetic clinical sandbox isolated from production. Visitors can explore all three roles safely without altering shared data.",
                 List.of(
                         new AuthDtos.DemoRoleInfoDto(
                                 Role.ADMIN,
                                 "Administrator Demo",
-                                "demo.admin",
                                 "Dr. Elena Vance — Medical Director",
-                                "Full hospital command center, analytics, scheduling, EMR, billing & audit logs"
+                                "Full hospital command center, staff directory, analytics & compliance controls",
+                                List.of(
+                                        "Dashboard overview",
+                                        "Patient management",
+                                        "Doctor and staff management",
+                                        "Department management",
+                                        "Appointment overview",
+                                        "Billing and reports",
+                                        "Audit logs",
+                                        "System settings"
+                                )
                         ),
                         new AuthDtos.DemoRoleInfoDto(
                                 Role.DOCTOR,
                                 "Doctor Demo",
-                                "demo.doctor",
                                 "Dr. Evelyn Hayes — Senior Cardiologist",
-                                "Clinical schedule, patient charts, medical records & digital prescriptions"
+                                "Physician clinical workspace for schedules, patient charts & prescriptions",
+                                List.of(
+                                        "Doctor dashboard",
+                                        "Assigned patients",
+                                        "Appointment schedule",
+                                        "Medical records",
+                                        "Prescriptions",
+                                        "Clinical workflow"
+                                )
                         ),
                         new AuthDtos.DemoRoleInfoDto(
                                 Role.RECEPTIONIST,
                                 "Receptionist Demo",
-                                "demo.reception",
                                 "Maya Lin — Front Desk Coordinator",
-                                "Patient intake, conflict-free appointment booking, check-ins & billing desk"
+                                "Front-desk admissions, conflict-free scheduling & billing operations",
+                                List.of(
+                                        "Reception dashboard",
+                                        "Patient registration",
+                                        "Appointment scheduling",
+                                        "Patient lookup",
+                                        "Billing workflow",
+                                        "Front-desk operations"
+                                )
                         )
                 )
         );
@@ -167,44 +190,14 @@ public class DemoService {
                 "Entered Public Demo Mode as " + saved.getRole().getDisplayName(), true);
 
         String token = jwtService.generateToken(saved);
-        return new AuthDtos.AuthResponse(token, "Bearer", jwtService.getExpirationMs(), DtoMapper.toUserSummary(saved));
+        return new AuthDtos.AuthResponse(token, "Bearer", jwtService.getExpirationMs(saved), DtoMapper.toUserSummary(saved));
     }
 
     @Transactional
     public synchronized AuthDtos.DemoResetResponse resetDemoDataset() {
-        if (!demoEnabled) {
-            throw new AuthorizationException(HttpStatus.FORBIDDEN,
-                    "Public demo mode is disabled on this server.");
-        }
-        UserEntity caller = permissionService.requireCurrentUserEntity();
-        if (!caller.isDemoUser()) {
-            throw new AuthorizationException(HttpStatus.FORBIDDEN,
-                    "Demo dataset reset is available only inside Public Demo Mode.");
-        }
-
-        Role activeRole = caller.getRole();
-        clearDemoRowsOnly();
-        seedFreshDemoWorkspace(activeRole);
-
-        UserEntity refreshedUser = userRepository.findFirstByRoleAndDemoUserTrueAndActiveTrue(activeRole)
-                .orElseThrow(() -> new IllegalStateException("Demo user missing after reset."));
-        refreshedUser.setLastLoginAt(OffsetDateTime.now(clock));
-        UserEntity savedCaller = userRepository.save(refreshedUser);
-
-        auditLogService.record(savedCaller, "RESET", "SYSTEM", "DEMO",
-                "Reset Public Demo workspace back to clean baseline dataset", true);
-
-        String freshToken = jwtService.generateToken(savedCaller);
-        AuthDtos.AuthResponse session = new AuthDtos.AuthResponse(
-                freshToken, "Bearer", jwtService.getExpirationMs(), DtoMapper.toUserSummary(savedCaller));
-
-        return new AuthDtos.DemoResetResponse(
-                "Public demo dataset restored to baseline (20 patients, 8 doctors, 12 appointments).",
-                session,
-                patientRepository.countByDemoRecord(true),
-                doctorRepository.countByDemoRecord(true),
-                appointmentRepository.countByDemoRecord(true)
-        );
+        permissionService.requireAuthenticatedPrincipal();
+        throw new AuthorizationException(HttpStatus.FORBIDDEN,
+                "Public demo dataset reset is disabled because shared demonstration data is read-only.");
     }
 
     private void ensureDemoDatasetSeededInternal() {

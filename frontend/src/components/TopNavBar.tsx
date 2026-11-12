@@ -99,14 +99,16 @@ export const TopNavBar: React.FC = () => {
   };
 
   const handleMarkItemRead = async (item: NotificationItem) => {
-    try {
-      const updated = await apiRequest<NotificationsResponse>(
-        `/notifications/${encodeURIComponent(item.id)}/read`,
-        { method: 'POST' }
-      );
-      setNotifData(updated);
-    } catch {
-      // ignore error
+    if (!user?.demoUser) {
+      try {
+        const updated = await apiRequest<NotificationsResponse>(
+          `/notifications/${encodeURIComponent(item.id)}/read`,
+          { method: 'POST' }
+        );
+        setNotifData(updated);
+      } catch {
+        // ignore error
+      }
     }
     setNotifOpen(false);
     if (item.route) {
@@ -115,6 +117,7 @@ export const TopNavBar: React.FC = () => {
   };
 
   const handleMarkAllRead = async () => {
+    if (user?.demoUser) return;
     try {
       const updated = await apiRequest<NotificationsResponse>('/notifications/mark-all-read', {
         method: 'POST',
@@ -211,7 +214,7 @@ export const TopNavBar: React.FC = () => {
                       {unreadCount} unread · {notifData?.totalCount ?? 0} total alerts
                     </p>
                   </div>
-                  {unreadCount > 0 && (
+                  {unreadCount > 0 && !user?.demoUser && (
                     <button
                       type="button"
                       onClick={handleMarkAllRead}
@@ -310,8 +313,8 @@ export const TopNavBar: React.FC = () => {
           <button
             type="button"
             onClick={handleLogout}
-            aria-label="Logout"
-            title="Sign out"
+            aria-label={user?.demoUser ? 'Exit Demo' : 'Logout'}
+            title={user?.demoUser ? 'Exit Demo' : 'Sign out'}
             className="hidden h-9 w-9 items-center justify-center rounded-lg border border-horizon-border bg-horizon-card text-horizon-muted transition hover:border-red-500/60 hover:text-red-400 sm:inline-flex"
           >
             <LogOut className="h-4 w-4" />
@@ -389,7 +392,7 @@ export const TopNavBar: React.FC = () => {
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium text-red-400 transition hover:bg-red-500/10"
             >
               <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
+              <span>{user?.demoUser ? 'Exit Demo' : 'Sign Out'}</span>
             </button>
           </div>
         </div>

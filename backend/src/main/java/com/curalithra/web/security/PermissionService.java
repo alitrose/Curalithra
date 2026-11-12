@@ -41,7 +41,7 @@ public class PermissionService {
     public void forbidDemoMutation(String actionDescription) {
         if (isCurrentDemoUser()) {
             throw new AuthorizationException(HttpStatus.FORBIDDEN,
-                    actionDescription + " is disabled in Public Demo Mode. Use 'Reset Demo Data' to restore the demo dataset.");
+                    actionDescription + " is disabled in Read-Only Public Demo Mode to protect shared demonstration data.");
         }
     }
 

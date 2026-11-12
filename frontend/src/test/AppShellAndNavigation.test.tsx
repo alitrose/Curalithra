@@ -225,7 +225,7 @@ describe('CURALITHRA Horizon Shell & Navigation', () => {
     });
   });
 
-  it('displays DemoBanner with 1-click role switching and Reset Demo Data with zero sidebars', async () => {
+  it('displays read-only DemoBanner with 1-click role switching, no Reset button, and Exit Demo with zero sidebars', async () => {
     const DEMO_ADMIN: UserSummary = {
       ...ADMIN_USER,
       id: 201,
@@ -243,7 +243,7 @@ describe('CURALITHRA Horizon Shell & Navigation', () => {
 
     setStoredToken('demo-admin-jwt');
     let switchedToRole: string | null = null;
-    let resetCalled = false;
+    let logoutCalled = false;
 
     vi.stubGlobal(
       'fetch',
@@ -253,7 +253,9 @@ describe('CURALITHRA Horizon Shell & Navigation', () => {
           return new Response(JSON.stringify({ setupRequired: false }), { status: 200 });
         }
         if (url.endsWith('/auth/demo-status')) {
-          return new Response(JSON.stringify({ enabled: true, notice: 'Sandbox', roles: [] }), { status: 200 });
+          return new Response(JSON.stringify({ enabled: true, notice: 'Read-only sandbox', roles: [] }), {
+            status: 200,
+          });
         }
         if (url.endsWith('/auth/me')) {
           return new Response(JSON.stringify(DEMO_ADMIN), { status: 200 });
@@ -265,36 +267,37 @@ describe('CURALITHRA Horizon Shell & Navigation', () => {
             JSON.stringify({
               accessToken: 'demo-reception-jwt',
               tokenType: 'Bearer',
-              expiresInMs: 28800000,
+              expiresInMs: 1800000,
               user: DEMO_RECEPTION,
             }),
             { status: 200 }
           );
         }
-        if (url.endsWith('/demo/reset') && init?.method === 'POST') {
-          resetCalled = true;
-          return new Response(
-            JSON.stringify({
-              message: 'Demo reset',
-              session: {
-                accessToken: 'demo-reset-jwt',
-                tokenType: 'Bearer',
-                expiresInMs: 28800000,
-                user: DEMO_RECEPTION,
-              },
-              patientsCount: 20,
-              doctorsCount: 8,
-              appointmentsCount: 12,
-            }),
-            { status: 200 }
-          );
+        if (url.endsWith('/auth/logout') && init?.method === 'POST') {
+          logoutCalled = true;
+          return new Response(null, { status: 204 });
         }
         if (url.includes('/dashboard/stats')) {
           return new Response(JSON.stringify(EMPTY_STATS), { status: 200 });
         }
-        return new Response(JSON.stringify({ items: [], totalCount: 0, alertCount: 0, unreadCount: 0 }), {
-          status: 200,
-        });
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'demo-alert',
+                severity: 'info',
+                title: 'Active Queue',
+                message: '12 scheduled appointments',
+                route: '/appointments',
+                read: false,
+              },
+            ],
+            totalCount: 1,
+            alertCount: 0,
+            unreadCount: 1,
+          }),
+          { status: 200 }
+        );
       })
     );
 
@@ -304,6 +307,15 @@ describe('CURALITHRA Horizon Shell & Navigation', () => {
       expect(screen.getByTestId('demo-mode-banner')).toBeInTheDocument();
     });
     expect(container.querySelectorAll('aside')).toHaveLength(0);
+    expect(screen.getByTestId('demo-mode-banner')).toHaveTextContent(/read-only sandbox/i);
+    expect(screen.queryByRole('button', { name: /reset demo data/i })).not.toBeInTheDocument();
+
+    // Demo notification popover hides Mark all read to protect shared demo state
+    fireEvent.click(screen.getByRole('button', { name: /notifications/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('notification-popover')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /mark all read/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Receptionist' }));
 
@@ -313,10 +325,16 @@ describe('CURALITHRA Horizon Shell & Navigation', () => {
     });
     expect(screen.queryByText('Records')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /reset demo data/i }));
+    // Mobile dropdown displays Exit Demo for active demo session
+    fireEvent.click(screen.getByRole('button', { name: /toggle navigation menu/i }));
+    expect(screen.getByTestId('mobile-top-dropdown')).toHaveTextContent('Exit Demo');
+
+    // Clear Exit Demo button revokes backend demo JWT via POST /auth/logout and exits to Welcome landing page
+    fireEvent.click(screen.getByTestId('exit-demo-btn'));
     await waitFor(() => {
-      expect(resetCalled).toBe(true);
-      expect(getStoredToken()).toBe('demo-reset-jwt');
+      expect(logoutCalled).toBe(true);
+      expect(screen.getByText('Welcome to CURALITHRA')).toBeInTheDocument();
     });
+    expect(getStoredToken()).toBeNull();
   });
 });

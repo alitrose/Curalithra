@@ -28,8 +28,9 @@ const EMPTY_RX: PrescriptionRequest = {
 };
 
 export const MedicalRecordsPage: React.FC = () => {
-  const { hasPermission, settings } = useAuth();
+  const { user, hasPermission, settings } = useAuth();
   const { pushToast } = useToast();
+  const isDemo = Boolean(user?.demoUser);
   const canEdit = hasPermission('EDIT_MEDICAL_RECORDS');
 
   const [records, setRecords] = useState<PagedResponse<MedicalRecord> | null>(null);
@@ -256,8 +257,14 @@ export const MedicalRecordsPage: React.FC = () => {
         {canEdit && (
           <button
             type="button"
+            disabled={isDemo}
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover"
+            title={
+              isDemo
+                ? 'Creating medical records is disabled in Read-Only Public Demo Mode'
+                : 'New Clinical Record'
+            }
+            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-horizon-accent"
           >
             <Plus className="h-4 w-4" />
             <span>New Clinical Record</span>
@@ -363,10 +370,15 @@ export const MedicalRecordsPage: React.FC = () => {
                           {canEdit && (
                             <button
                               type="button"
+                              disabled={isDemo}
                               onClick={() => openEditModal(rec)}
-                              title="Edit clinical record"
+                              title={
+                                isDemo
+                                  ? 'Editing clinical records is disabled in Read-Only Public Demo Mode'
+                                  : 'Edit clinical record'
+                              }
                               aria-label={`Edit ${rec.recordCode}`}
-                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text"
+                              className="rounded-lg border border-horizon-border bg-horizon-bg p-1.5 text-horizon-muted hover:border-horizon-emerald hover:text-horizon-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border disabled:hover:text-horizon-muted"
                             >
                               <Pencil className="h-4 w-4" />
                             </button>

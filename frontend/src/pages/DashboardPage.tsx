@@ -49,7 +49,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export const DashboardPage: React.FC = () => {
-  const { settings, hasPermission } = useAuth();
+  const { user, settings, hasPermission } = useAuth();
   const { pushToast } = useToast();
   const currency = settings?.currencySymbol || '₹';
 
@@ -120,9 +120,16 @@ export const DashboardPage: React.FC = () => {
       {/* Header & Date Filter Bar */}
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-horizon-accent">
-            CURALITHRA · Horizon Operations Overview
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-horizon-accent">
+              CURALITHRA · Horizon Operations Overview
+            </p>
+            {user?.demoUser && (
+              <span className="rounded-full border border-horizon-emerald/50 bg-horizon-emerald/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-horizon-accent">
+                {user.roleDisplay} Demo View
+              </span>
+            )}
+          </div>
           <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-horizon-text sm:text-3xl">
             Clinical Operations Dashboard
           </h1>

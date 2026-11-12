@@ -19,9 +19,9 @@ public final class AuthDtos {
     public record DemoRoleInfoDto(
             Role role,
             String title,
-            String username,
             String summary,
-            String accessScope
+            String accessScope,
+            List<String> highlights
     ) {}
 
     public record DemoStatusResponse(

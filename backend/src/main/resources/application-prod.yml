@@ -12,6 +12,9 @@ spring:
       connection-timeout: 30000
       keepalive-time: 120000
 
+server:
+  forward-headers-strategy: native
+
 curalithra:
   security:
     jwt-secret: ${CURALITHRA_JWT_SECRET}

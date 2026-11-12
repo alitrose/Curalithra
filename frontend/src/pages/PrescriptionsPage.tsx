@@ -19,8 +19,9 @@ import type {
 import { formatDate, formatDateTime } from '../utils/format';
 
 export const PrescriptionsPage: React.FC = () => {
-  const { hasPermission, settings } = useAuth();
+  const { user, hasPermission, settings } = useAuth();
   const { pushToast } = useToast();
+  const isDemo = Boolean(user?.demoUser);
   const canEdit = hasPermission('EDIT_MEDICAL_RECORDS');
 
   const [prescriptions, setPrescriptions] = useState<PagedResponse<Prescription> | null>(null);
@@ -193,8 +194,14 @@ export const PrescriptionsPage: React.FC = () => {
         {canEdit && (
           <button
             type="button"
+            disabled={isDemo}
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover"
+            title={
+              isDemo
+                ? 'Issuing prescriptions is disabled in Read-Only Public Demo Mode'
+                : 'Issue Prescription'
+            }
+            className="inline-flex items-center gap-2 rounded-lg bg-horizon-accent px-4 py-2.5 text-sm font-bold text-horizon-nav transition hover:bg-horizon-accent-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-horizon-accent"
           >
             <Plus className="h-4 w-4" />
             <span>Issue Prescription</span>
@@ -316,8 +323,14 @@ export const PrescriptionsPage: React.FC = () => {
                           {canEdit && rx.status === 'ACTIVE' && (
                             <button
                               type="button"
+                              disabled={isDemo}
                               onClick={() => handleStatusUpdate(rx, 'DISPENSED')}
-                              className="rounded-lg border border-horizon-border bg-horizon-bg px-2.5 py-1 text-[11px] font-semibold text-sky-300 hover:border-sky-400"
+                              title={
+                                isDemo
+                                  ? 'Updating prescription status is disabled in Read-Only Public Demo Mode'
+                                  : 'Mark as dispensed'
+                              }
+                              className="rounded-lg border border-horizon-border bg-horizon-bg px-2.5 py-1 text-[11px] font-semibold text-sky-300 hover:border-sky-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border"
                             >
                               Dispense
                             </button>
@@ -325,8 +338,14 @@ export const PrescriptionsPage: React.FC = () => {
                           {canEdit && rx.status !== 'COMPLETED' && (
                             <button
                               type="button"
+                              disabled={isDemo}
                               onClick={() => handleStatusUpdate(rx, 'COMPLETED')}
-                              className="rounded-lg border border-horizon-border bg-horizon-bg px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:border-emerald-400"
+                              title={
+                                isDemo
+                                  ? 'Updating prescription status is disabled in Read-Only Public Demo Mode'
+                                  : 'Mark as completed'
+                              }
+                              className="rounded-lg border border-horizon-border bg-horizon-bg px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-horizon-border"
                             >
                               Complete
                             </button>

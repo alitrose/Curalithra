@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -21,11 +22,20 @@ public class CuralithraUserPrincipal implements UserDetails {
     private final Long linkedDoctorId;
     private final boolean active;
     private final boolean demoUser;
+    private final String tokenJti;
+    private final Instant tokenExpiresAt;
     private final List<GrantedAuthority> authorities;
 
     public CuralithraUserPrincipal(Long id, String username, String fullName, String email,
                                    String passwordHash, Role role, Long linkedDoctorId,
                                    boolean active, boolean demoUser) {
+        this(id, username, fullName, email, passwordHash, role, linkedDoctorId, active, demoUser, null, null);
+    }
+
+    public CuralithraUserPrincipal(Long id, String username, String fullName, String email,
+                                   String passwordHash, Role role, Long linkedDoctorId,
+                                   boolean active, boolean demoUser,
+                                   String tokenJti, Instant tokenExpiresAt) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
@@ -35,6 +45,8 @@ public class CuralithraUserPrincipal implements UserDetails {
         this.linkedDoctorId = linkedDoctorId;
         this.active = active;
         this.demoUser = demoUser;
+        this.tokenJti = tokenJti;
+        this.tokenExpiresAt = tokenExpiresAt;
 
         List<GrantedAuthority> auths = new ArrayList<>();
         auths.add(new SimpleGrantedAuthority("ROLE_" + role.name()));
@@ -51,6 +63,8 @@ public class CuralithraUserPrincipal implements UserDetails {
     public Long getLinkedDoctorId() { return linkedDoctorId; }
     public boolean isActive() { return active; }
     public boolean isDemoUser() { return demoUser; }
+    public String getTokenJti() { return tokenJti; }
+    public Instant getTokenExpiresAt() { return tokenExpiresAt; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() { return authorities; }

@@ -390,7 +390,20 @@ describe('Clinical Workflows & API Client', () => {
     await waitFor(() => {
       expect(screen.getByText('Sophia Patel')).toBeInTheDocument();
     });
+    expect(screen.getByRole('button', { name: /view sophia patel/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /register patient/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /edit sophia patel/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /delete sophia patel/i })).toBeDisabled();
+
+    // Surfaces helpful HTTP 429 rate-limit message without logging the session out
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ status: 429 }), { status: 429 }))
+    );
+    await expect(apiRequest('/auth/demo-login', { method: 'POST', body: '{}' })).rejects.toThrow(
+      /too many requests/i
+    );
+    expect(getStoredToken()).toBe('demo-admin-jwt');
   });
 
   it('formats configured hospital currencies and canonical UTC dates consistently', () => {

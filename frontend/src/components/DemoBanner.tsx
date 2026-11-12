@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FlaskConical, RotateCcw, ShieldCheck } from 'lucide-react';
+import { FlaskConical, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { Role } from '../types/api';
@@ -17,23 +17,23 @@ const DEMO_ROLE_BUTTONS: { role: Role; shortLabel: string; title: string }[] = [
 
 /**
  * Sticky horizontal Public Demo banner shown only for backend-authenticated demo sessions.
- * Strictly horizontal (zero sidebar), enabling instant role switching and clean sandbox reset.
+ * Strictly horizontal (zero sidebar), enabling instant role switching and Exit Demo in read-only sandbox mode.
  */
 export const DemoBanner: React.FC = () => {
-  const { user, loginWithDemoRole, resetDemoData } = useAuth();
+  const { user, loginWithDemoRole, logout } = useAuth();
   const { pushToast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [switchingRole, setSwitchingRole] = useState<Role | null>(null);
-  const [resetting, setResetting] = useState(false);
+  const [exiting, setExiting] = useState(false);
 
   if (!user?.demoUser) {
     return null;
   }
 
   const handleSwitchRole = async (targetRole: Role) => {
-    if (targetRole === user.role || switchingRole || resetting) return;
+    if (targetRole === user.role || switchingRole || exiting) return;
     setSwitchingRole(targetRole);
     try {
       const switched = await loginWithDemoRole(targetRole);
@@ -67,24 +67,14 @@ export const DemoBanner: React.FC = () => {
     }
   };
 
-  const handleReset = async () => {
-    if (resetting || switchingRole) return;
-    setResetting(true);
+  const handleExitDemo = async () => {
+    if (exiting) return;
+    setExiting(true);
     try {
-      const res = await resetDemoData();
-      pushToast(
-        'success',
-        'Demo Data Reset',
-        `${res.patientsCount} patients · ${res.doctorsCount} doctors · ${res.appointmentsCount} appointments restored`
-      );
-    } catch (err) {
-      pushToast(
-        'error',
-        'Reset Failed',
-        err instanceof Error ? err.message : undefined
-      );
+      await logout();
+      navigate('/login', { replace: true });
     } finally {
-      setResetting(false);
+      setExiting(false);
     }
   };
 
@@ -97,15 +87,15 @@ export const DemoBanner: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-horizon-accent/60 bg-horizon-accent/15 px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-horizon-accent">
             <FlaskConical className="h-3.5 w-3.5" />
-            <span>DEMO MODE</span>
+            <span>DEMO MODE · {user.roleDisplay}</span>
           </span>
           <span className="font-semibold text-horizon-text">
-            {user.fullName} ({user.roleDisplay})
+            {user.fullName}
           </span>
           <span className="hidden items-center gap-1 text-horizon-muted md:inline-flex">
             <span>·</span>
             <ShieldCheck className="h-3.5 w-3.5 text-horizon-accent" />
-            <span>Isolated synthetic dataset · Deletes & system config locked</span>
+            <span>Read-only sandbox · Switch roles freely · Mutations &amp; resets disabled</span>
           </span>
         </div>
 
@@ -124,7 +114,7 @@ export const DemoBanner: React.FC = () => {
                   key={btn.role}
                   type="button"
                   title={btn.title}
-                  disabled={active || Boolean(switchingRole) || resetting}
+                  disabled={active || Boolean(switchingRole) || exiting}
                   onClick={() => handleSwitchRole(btn.role)}
                   className={`rounded-md px-2.5 py-1 font-semibold transition ${
                     active
@@ -140,12 +130,13 @@ export const DemoBanner: React.FC = () => {
 
           <button
             type="button"
-            onClick={handleReset}
-            disabled={resetting || Boolean(switchingRole)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-horizon-emerald/60 bg-horizon-emerald/15 px-3 py-1 text-[11px] font-bold text-horizon-accent transition hover:bg-horizon-emerald/30 disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="exit-demo-btn"
+            onClick={handleExitDemo}
+            disabled={exiting || Boolean(switchingRole)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-horizon-border bg-horizon-card px-3 py-1 text-[11px] font-bold text-horizon-text transition hover:border-red-500/60 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RotateCcw className={`h-3.5 w-3.5 ${resetting ? 'animate-spin' : ''}`} />
-            <span>{resetting ? 'Resetting...' : 'Reset Demo Data'}</span>
+            <LogOut className="h-3.5 w-3.5" />
+            <span>{exiting ? 'Exiting...' : 'Exit Demo'}</span>
           </button>
         </div>
       </div>

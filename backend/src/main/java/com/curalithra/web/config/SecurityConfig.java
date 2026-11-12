@@ -1,7 +1,9 @@
 package com.curalithra.web.config;
 
 import com.curalithra.web.exception.GlobalExceptionHandler;
+import com.curalithra.web.security.DemoRateLimitFilter;
 import com.curalithra.web.security.JwtAuthFilter;
+import com.curalithra.web.security.RateLimitService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,13 +34,16 @@ import java.util.Map;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final RateLimitService rateLimitService;
     private final ObjectMapper objectMapper;
     private final String corsAllowedOrigins;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,
+                          RateLimitService rateLimitService,
                           ObjectMapper objectMapper,
                           @Value("${curalithra.security.cors-allowed-origins:http://localhost:5173}") String corsAllowedOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.rateLimitService = rateLimitService;
         this.objectMapper = objectMapper;
         this.corsAllowedOrigins = corsAllowedOrigins;
     }
@@ -89,7 +94,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/setup", "/api/auth/login", "/api/auth/demo-login").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new DemoRateLimitFilter(rateLimitService, objectMapper), JwtAuthFilter.class);
 
         return http.build();
     }
@@ -105,7 +111,14 @@ public class SecurityConfig {
         cfg.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:5173") : origins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"));
-        cfg.setExposedHeaders(List.of("Content-Disposition"));
+        cfg.setExposedHeaders(List.of(
+                "Content-Disposition",
+                "X-Curalithra-Demo-Mode",
+                "X-Curalithra-Demo-Role",
+                "Retry-After",
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining"
+        ));
         cfg.setAllowCredentials(false);
         cfg.setMaxAge(3600L);
 

@@ -10,6 +10,8 @@ import com.curalithra.web.exception.NotFoundException;
 import com.curalithra.web.exception.ValidationException;
 import com.curalithra.web.repository.DoctorRepository;
 import com.curalithra.web.repository.UserRepository;
+import com.curalithra.web.security.CuralithraUserPrincipal;
+import com.curalithra.web.security.DemoTokenRevocationService;
 import com.curalithra.web.security.JwtService;
 import com.curalithra.web.security.PermissionService;
 import com.curalithra.web.util.DomainValidators;
@@ -36,6 +38,7 @@ public class AuthService {
     private final PermissionService permissionService;
     private final SeedDataService seedDataService;
     private final AuditLogService auditLogService;
+    private final DemoTokenRevocationService demoTokenRevocationService;
     private final Clock clock;
     private final boolean demoEnabled;
 
@@ -46,6 +49,7 @@ public class AuthService {
                        PermissionService permissionService,
                        SeedDataService seedDataService,
                        AuditLogService auditLogService,
+                       DemoTokenRevocationService demoTokenRevocationService,
                        Clock clock,
                        @Value("${curalithra.demo.enabled:false}") boolean demoEnabled) {
         this.userRepository = userRepository;
@@ -55,6 +59,7 @@ public class AuthService {
         this.permissionService = permissionService;
         this.seedDataService = seedDataService;
         this.auditLogService = auditLogService;
+        this.demoTokenRevocationService = demoTokenRevocationService;
         this.clock = clock;
         this.demoEnabled = demoEnabled;
     }
@@ -102,7 +107,7 @@ public class AuthService {
                 "Initialized CURALITHRA Web workspace and administrator account");
 
         String token = jwtService.generateToken(savedAdmin);
-        return new AuthDtos.AuthResponse(token, "Bearer", jwtService.getExpirationMs(), DtoMapper.toUserSummary(savedAdmin));
+        return new AuthDtos.AuthResponse(token, "Bearer", jwtService.getExpirationMs(savedAdmin), DtoMapper.toUserSummary(savedAdmin));
     }
 
     @Transactional
@@ -118,7 +123,7 @@ public class AuthService {
         UserEntity user = found.orElseThrow(() ->
                 new AuthorizationException(HttpStatus.UNAUTHORIZED, "Invalid username/email or password."));
 
-        if (user.isDemoUser() && !demoEnabled) {
+        if (user.isDemoUser()) {
             throw new AuthorizationException(HttpStatus.UNAUTHORIZED, "Invalid username/email or password.");
         }
         if (!user.isActive()) {
@@ -135,11 +140,15 @@ public class AuthService {
                 "Signed in as " + user.getRole().getDisplayName());
 
         String token = jwtService.generateToken(user);
-        return new AuthDtos.AuthResponse(token, "Bearer", jwtService.getExpirationMs(), DtoMapper.toUserSummary(user));
+        return new AuthDtos.AuthResponse(token, "Bearer", jwtService.getExpirationMs(user), DtoMapper.toUserSummary(user));
     }
 
     @Transactional
     public void logout() {
+        CuralithraUserPrincipal principal = permissionService.requireAuthenticatedPrincipal();
+        if (principal.isDemoUser() && principal.getTokenJti() != null) {
+            demoTokenRevocationService.revoke(principal.getTokenJti(), principal.getTokenExpiresAt());
+        }
         UserEntity current = permissionService.requireCurrentUserEntity();
         auditLogService.record(current, "LOGOUT", "SESSION", current.getUsername(), "Signed out of CURALITHRA Web");
     }
